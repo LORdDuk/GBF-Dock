@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.2'
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ([string]::IsNullOrWhiteSpace($tag) -or $tag -eq "main") {
+            $tag = "v1.0.0"
+          }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Vet and test
+        shell: pwsh
+        run: |
+          go vet ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go test -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Compile Windows resources if windres is available
+        shell: pwsh
+        run: |
+          if (Get-Command windres -ErrorAction SilentlyContinue) {
+            windres -i winres/rsrc.rc -O coff -o rsrc_windows_amd64.syso
+          } else {
+            Write-Host "windres not found, using committed rsrc_windows_amd64.syso"
+          }
+
+      - name: Build and package release artifacts
+        shell: pwsh
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          $stage = "dist/GBF-Dock"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          $env:CGO_ENABLED = "0"
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          go build -trimpath -ldflags "-s -w -H windowsgui" -o "$stage/GBF-Dock.exe" .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $TAG | Out-File -FilePath "$stage/VERSION.txt" -Encoding utf8 -NoNewline
+          Copy-Item README.md "$stage/README.md"
+          Copy-Item LICENSE "$stage/LICENSE"
+          Copy-Item docs/USAGE.md "$stage/使用说明.md"
+
+          $zipPath = "dist/GBF-Dock-$TAG-windows-amd64.zip"
+          Add-Type -AssemblyName System.IO.Compression
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+          foreach ($f in Get-ChildItem $stage -File) {
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $f.FullName, "GBF-Dock/$($f.Name)", [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+          }
+          $zip.Dispose()
+
+          $exeHash = (Get-FileHash "$stage/GBF-Dock.exe" -Algorithm SHA256).Hash.ToLower()
+          $zipHash = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLower()
+          @(
+            "$zipHash  GBF-Dock-$TAG-windows-amd64.zip"
+            "$exeHash  GBF-Dock.exe"
+          ) | Out-File -FilePath "dist/SHA256SUMS.txt" -Encoding ascii
+
+      - name: Create or update GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          $zipPath = "dist/GBF-Dock-$TAG-windows-amd64.zip"
+          $exePath = "dist/GBF-Dock/GBF-Dock.exe"
+          $sumPath = "dist/SHA256SUMS.txt"
+          gh release create $TAG $zipPath $exePath $sumPath --title "GBF-Dock $TAG" --generate-notes

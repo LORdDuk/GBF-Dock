@@ -1,0 +1,2339 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GBF-Dock v1.0.0 控制面板</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f7cf6'/%3E%3Cpath d='M9 20.5a4.5 4.5 0 0 1 .9-8.9 6 6 0 0 1 11.4 1.6A3.7 3.7 0 0 1 22.5 20.5Z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #111317;
+    --sidebar: #15181e;
+    --card: #1b1f27;
+    --card-2: #242936;
+    --card-hover: #2a3040;
+    --line: rgba(255, 255, 255, 0.08);
+    --line-strong: rgba(255, 255, 255, 0.14);
+    --text-1: #ffffff;
+    --text-2: #f1f5f9;
+    --text-3: #94a3b8;
+    --accent: #2f7cf6;
+    --accent-hover: #428afc;
+    --accent-soft: rgba(47, 124, 246, 0.18);
+    --ok: #4ade80;
+    --ok-bg: rgba(34, 197, 94, 0.16);
+    --warn: #fbbf24;
+    --warn-bg: rgba(251, 191, 36, 0.15);
+    --bad: #f87171;
+    --bad-bg: rgba(248, 113, 113, 0.16);
+    --tip-bg: #0b0d12;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    --ui: "Microsoft YaHei UI", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    --num: "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+    --mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+    --side-w: 172px;
+    color-scheme: dark;
+  }
+
+  :root[data-theme="light"] {
+    --bg: #f1f4f9;
+    --sidebar: #ffffff;
+    --card: #ffffff;
+    --card-2: #f5f7fb;
+    --card-hover: #eaeff7;
+    --line: rgba(15, 23, 42, 0.08);
+    --line-strong: rgba(15, 23, 42, 0.15);
+    --text-1: #0f172a;
+    --text-2: #1e293b;
+    --text-3: #64748b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-soft: rgba(37, 99, 235, 0.12);
+    --ok: #15803d;
+    --ok-bg: rgba(21, 128, 61, 0.12);
+    --warn: #b45309;
+    --warn-bg: rgba(180, 83, 9, 0.12);
+    --bad: #dc2626;
+    --bad-bg: rgba(220, 38, 38, 0.12);
+    --tip-bg: #0f172a;
+    --shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text-2);
+    font-family: var(--ui);
+    font-size: 13px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    width: 100%;
+    height: 100dvh;
+    display: grid;
+    grid-template-columns: var(--side-w) minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+  }
+  .app.collapsed { --side-w: 60px; }
+
+  /* 左侧导航栏 */
+  aside {
+    background: var(--sidebar);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    padding: 12px 10px;
+    gap: 8px;
+    min-width: 0;
+    min-height: 0;
+    user-select: none;
+  }
+  .side-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 2px 2px 6px;
+  }
+  .logo-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .logo-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--accent);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .logo-mark svg { width: 17px; height: 17px; fill: #fff; }
+  .logo-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .icon-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-3);
+    display: grid;
+    place-items: center;
+    flex: none;
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--card-2); color: var(--text-1); }
+  .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  .nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-height: 0;
+  }
+  .nav-btn {
+    width: 100%;
+    height: 36px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-3);
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.12s, color 0.12s;
+  }
+  .nav-btn svg { width: 17px; height: 17px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.9; }
+  .nav-btn:hover { background: var(--card-2); color: var(--text-1); }
+  .nav-btn.active {
+    background: var(--card-2);
+    border-color: var(--line);
+    color: var(--text-1);
+  }
+  .nav-btn.active svg { color: var(--accent); }
+  .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .side-foot {
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ver-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .ver-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 11px;
+    line-height: 1;
+  }
+  .quit-btn {
+    width: 100%;
+    height: 32px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text-2);
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .quit-btn:hover:not(:disabled) { border-color: var(--bad); color: var(--bad); background: var(--bad-bg); }
+  .quit-btn svg { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  .app.collapsed aside { padding: 12px 8px; align-items: center; }
+  .app.collapsed .logo-box,
+  .app.collapsed .nav-label,
+  .app.collapsed .ver-row,
+  .app.collapsed .quit-label { display: none; }
+  .app.collapsed .side-top { justify-content: center; padding: 2px 0 6px; }
+  .app.collapsed .nav-btn,
+  .app.collapsed .quit-btn { justify-content: center; padding: 0; width: 40px; }
+
+  /* 右侧主区 */
+  .workspace {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: clamp(10px, 1.5vw, 18px) clamp(12px, 1.8vw, 20px);
+    gap: clamp(8px, 1.2vh, 12px);
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    height: 32px;
+    flex: none;
+    min-width: 0;
+  }
+  .page-title {
+    margin: 0;
+    font-size: clamp(16px, 1.4vw + 8px, 20px);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-1);
+    white-space: nowrap;
+  }
+  .top-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 11px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-3);
+    white-space: nowrap;
+  }
+  .status-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+  .status-pill.on { background: var(--ok-bg); border-color: rgba(74, 222, 128, 0.28); color: var(--ok); }
+  .status-pill.on i { background: var(--ok); }
+  .status-pill.off { background: var(--bad-bg); border-color: rgba(248, 113, 113, 0.3); color: var(--bad); }
+  .status-pill.off i { background: var(--bad); }
+
+  /* 视图切换 */
+  .view {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .view.active { display: flex; flex-direction: column; }
+
+  /* 统一单一 3 列 Bento Grid：让上中下三行所有卡片竖向边缘严格对齐 */
+  .bento-grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(268px, 1.45fr) minmax(175px, 1fr) minmax(175px, 1fr);
+    grid-template-rows: auto auto minmax(150px, 1fr);
+    gap: clamp(8px, 1.2vw, 12px);
+    min-width: 0;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: clamp(11px, 1.4vw, 14px);
+    box-shadow: var(--shadow);
+    min-width: 0;
+    container-type: inline-size;
+  }
+  .card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 22px;
+    margin-bottom: clamp(6px, 0.9vh, 10px);
+    min-width: 0;
+  }
+  .title-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-3);
+  }
+  .title-left svg.ico { width: 15px; height: 15px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; }
+  .title-left span.lbl {
+    color: var(--text-2);
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .title-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    font-size: 12px;
+    line-height: 1;
+    color: var(--text-3);
+  }
+
+  /* 几何居中 SVG 感叹号提示按钮 */
+  .tip-btn {
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--card-2);
+    color: var(--text-3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    cursor: help;
+    transition: border-color 0.12s, color 0.12s, background-color 0.12s;
+  }
+  .tip-btn:hover, .tip-btn:focus-visible {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    outline: none;
+  }
+
+  /* 折叠展开小按钮 */
+  .chev-btn {
+    width: 26px;
+    height: 24px;
+    padding: 0;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--card-2);
+    color: var(--text-2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    cursor: pointer;
+    transition: background-color 0.12s, border-color 0.12s;
+  }
+  .chev-btn:hover { background: var(--card-hover); border-color: var(--accent); color: var(--text-1); }
+  .chev-btn svg {
+    width: 13px;
+    height: 13px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2.2;
+    transition: transform 0.16s ease;
+  }
+  .chev-btn.open svg { transform: rotate(180deg); }
+
+  /* Row 1 Col 1：状态卡片（移除重复开关按钮，改用纯粹视觉状态徽标） */
+  .status-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: radial-gradient(280px 140px at 95% 25%, var(--accent-soft), transparent 70%), var(--card);
+  }
+  .status-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 2px 0 clamp(8px, 1vh, 11px);
+    min-width: 0;
+  }
+  .status-main { min-width: 0; }
+  .addr-val {
+    font-family: var(--num);
+    font-size: clamp(19px, 8.5cqw, 25px);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--text-1);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 7px;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 6px;
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .tag.ok { background: var(--ok-bg); border-color: transparent; color: var(--ok); }
+  .tag.warn { background: var(--warn-bg); border-color: transparent; color: var(--warn); }
+  button.tag {
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.12s, background-color 0.12s, filter 0.12s;
+  }
+  button.tag:hover:not(:disabled) { border-color: var(--accent); filter: brightness(1.06); }
+
+  /* 非交互纯视觉状态徽标（不与下方代理接管开关重复） */
+  .status-emblem {
+    width: clamp(46px, 15cqw, 56px);
+    height: clamp(46px, 15cqw, 56px);
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--card-2);
+    color: var(--text-3);
+    display: grid;
+    place-items: center;
+    flex: none;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+  }
+  .status-emblem.on {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(47, 124, 246, 0.12);
+  }
+  .status-emblem svg { width: 46%; height: 46%; stroke: currentColor; fill: none; stroke-width: 1.9; }
+
+  .status-foot {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+  }
+  .kv-mini span { display: block; font-size: 11px; color: var(--text-3); line-height: 1.3; }
+  .kv-mini strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-1);
+    line-height: 1.35;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Row 1 Col 2 & 3：指标卡片 */
+  .metric-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .big-num {
+    font-family: var(--num);
+    font-size: clamp(22px, 13cqw, 31px);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--text-1);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sub-line {
+    margin-top: 5px;
+    font-size: clamp(11px, 4.8cqw, 12px);
+    color: var(--text-3);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sub-line em { font-style: normal; color: var(--bad); margin-left: 6px; font-weight: 600; }
+  .prog-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--card-2);
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  .prog-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: var(--accent);
+    transition: width 0.25s ease;
+  }
+
+  /* Row 2：三个横向控制卡统一单行居中 */
+  .ctrl-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-height: 62px;
+  }
+  .ctrl-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 36px;
+    min-width: 0;
+  }
+  .ctrl-info {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+  }
+  .badge-ico {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .badge-ico.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge-ico svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .ctrl-text { min-width: 0; }
+  .ctrl-head {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    line-height: 1;
+  }
+  .ctrl-head b { font-size: 13px; font-weight: 600; color: var(--text-1); line-height: 1; white-space: nowrap; }
+  .ctrl-sub {
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.2;
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 等宽单行胶囊分段器（永不换行错位） */
+  .seg {
+    flex: 1;
+    max-width: 210px;
+    min-width: 144px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: 2px;
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .seg button {
+    height: 28px;
+    padding: 0 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    border-radius: 6px;
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.12s, color 0.12s;
+  }
+  .seg button:hover:not(:disabled) { color: var(--text-1); }
+  .seg button.active { background: var(--accent); color: #ffffff; }
+
+  .drawer {
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .drawer[hidden] { display: none; }
+
+  .input-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 7px;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--text-1);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+
+  /* Row 3：快捷操作（Col 1） + 实时动态（Col 2~3） */
+  .act-card, .live-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 0;
+  }
+  .live-card { grid-column: 2 / -1; }
+  .btn-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .stat-pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .mini-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: var(--card-2);
+    color: var(--text-2);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .mini-pill.blue { background: var(--accent-soft); color: var(--accent); }
+  .mini-pill.bad { background: var(--bad-bg); color: var(--bad); }
+
+  .log-box {
+    flex: 1;
+    min-height: 92px;
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-3);
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 7px;
+    border: 1px solid var(--line-strong);
+    background: var(--card-2);
+    color: var(--text-2);
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+  }
+  .btn:hover:not(:disabled) { background: var(--card-hover); border-color: var(--accent); color: var(--text-1); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn.danger:hover:not(:disabled) { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .btn.sm { height: 24px; padding: 0 9px; font-size: 11px; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+
+  .toggle {
+    position: relative;
+    width: 44px;
+    height: 22px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: var(--card-2);
+    flex: none;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+  }
+  .toggle::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text-3);
+    transition: transform 0.15s, background-color 0.15s;
+  }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle.on::after { transform: translateX(22px); background: #ffffff; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 2px 6px;
+    color: var(--text-2);
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
+  .cfg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: 12px;
+  }
+  .cfg-card { display: flex; flex-direction: column; gap: 10px; }
+  .cfg-kv { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-3); }
+  .cfg-kv strong { color: var(--text-1); font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+  .full-log-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .full-log-card .log-box { flex: 1; min-height: 0; }
+
+  #tooltip {
+    position: fixed;
+    left: 0;
+    top: 0;
+    max-width: min(290px, calc(100vw - 20px));
+    padding: 8px 11px;
+    border-radius: 8px;
+    background: var(--tip-bg);
+    border: 1px solid var(--line-strong);
+    color: #f8fafc;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    z-index: 999;
+  }
+  #tooltip.show { opacity: 1; transform: translateY(0); }
+
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translate(-50%, 10px);
+    opacity: 0;
+    pointer-events: none;
+    max-width: min(90vw, 480px);
+    padding: 9px 15px;
+    border-radius: 8px;
+    background: var(--text-1);
+    color: var(--bg);
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    transition: opacity 0.16s, transform 0.16s;
+    z-index: 90;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #toast.bad { background: var(--bad); color: #ffffff; }
+
+  .dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.52);
+    display: none;
+    place-items: center;
+    padding: 16px;
+    z-index: 100;
+  }
+  .dialog-backdrop.open { display: grid; }
+  .dialog {
+    width: min(390px, 100%);
+    background: var(--card);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  }
+  .dialog h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--text-1); }
+  .dialog p { margin: 0 0 16px; font-size: 13px; color: var(--text-3); overflow-wrap: anywhere; }
+  .dialog-acts { display: flex; justify-content: flex-end; gap: 8px; }
+
+  #ended {
+    position: fixed;
+    inset: 0;
+    display: none;
+    place-items: center;
+    background: var(--bg);
+    color: var(--text-2);
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 120;
+  }
+
+  .cat-bar {
+    display: flex;
+    height: 7px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--line);
+  }
+  .cat-seg { height: 100%; min-width: 2px; transition: width 0.25s ease; }
+  .cat-list { display: grid; gap: 6px; }
+  .cat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .cat-left { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); min-width: 0; }
+  .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .cat-right { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+  .cat-meta { color: var(--text-3); font-variant-numeric: tabular-nums; font-size: 11px; }
+
+  .dialog.health-dialog { width: min(540px, 100%); max-height: 86vh; display: flex; flex-direction: column; gap: 12px; }
+  .health-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .health-head h3 { margin: 0; }
+  .health-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .health-pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .health-pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .health-pill.fail { background: var(--bad-bg); color: var(--bad); }
+  .health-summary { margin: 0; font-size: 12px; color: var(--text-3); }
+  .health-list { display: grid; gap: 8px; overflow: auto; padding-right: 2px; }
+  .health-item {
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 9px 11px;
+    display: grid;
+    gap: 4px;
+  }
+  .health-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .health-name { font-size: 12px; font-weight: 700; color: var(--text-1); }
+  .health-detail { font-size: 12px; color: var(--text-2); overflow-wrap: anywhere; }
+  .health-hint { font-size: 11px; color: var(--warn); overflow-wrap: anywhere; }
+
+  .dialog.import-dialog { width: min(560px, 100%); max-height: 88vh; display: flex; flex-direction: column; gap: 11px; }
+  .imp-sec-lbl { font-size: 12px; font-weight: 600; color: var(--text-2); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .imp-cands { display: grid; gap: 6px; max-height: 146px; overflow: auto; padding-right: 2px; }
+  .imp-cand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.12s, background-color 0.12s;
+  }
+  .imp-cand:hover, .imp-cand.active { border-color: var(--accent); background: var(--card-hover); }
+  .imp-cand-path { font-family: var(--mono); font-size: 11px; color: var(--text-1); overflow-wrap: anywhere; }
+  .imp-cand-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .imp-strat-seg { max-width: none; width: 100%; }
+  .imp-prev-box {
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 10px 12px;
+    display: grid;
+    gap: 7px;
+  }
+  .imp-prev-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 12px; }
+  .imp-prev-kv { display: flex; justify-content: space-between; gap: 8px; color: var(--text-3); }
+  .imp-prev-kv strong { color: var(--text-1); font-variant-numeric: tabular-nums; }
+
+  /* 窗口自适应断点 */
+  @media (max-width: 900px) {
+    .bento-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: auto;
+      flex: none;
+    }
+    .status-card, .upstream-ctrl-card, .act-card, .live-card { grid-column: 1 / -1; }
+  }
+  @media (max-height: 540px) {
+    .bento-grid { grid-template-rows: auto; flex: none; }
+  }
+  @media (max-width: 820px) {
+    .app:not(.manual-expand) { --side-w: 60px; }
+    .app:not(.manual-expand) aside { padding: 12px 8px; align-items: center; }
+    .app:not(.manual-expand) .logo-box,
+    .app:not(.manual-expand) .nav-label,
+    .app:not(.manual-expand) .ver-row,
+    .app:not(.manual-expand) .quit-label { display: none; }
+    .app:not(.manual-expand) .side-top { justify-content: center; padding: 2px 0 6px; }
+    .app:not(.manual-expand) .nav-btn,
+    .app:not(.manual-expand) .quit-btn { justify-content: center; padding: 0; width: 40px; }
+  }
+  @media (max-width: 560px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    aside {
+      flex-direction: row;
+      align-items: center;
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 12px;
+    }
+    .side-top { padding: 0; }
+    #btn-side-toggle { display: none; }
+    .nav-list { flex-direction: row; justify-content: center; gap: 4px; }
+    .nav-btn { width: auto !important; padding: 0 10px !important; }
+    .nav-label { display: inline !important; font-size: 12px; }
+    .side-foot { border-top: none; padding-top: 0; flex-direction: row; }
+    .ver-row, .quit-label { display: none !important; }
+    .quit-btn { width: 34px !important; padding: 0 !important; }
+    .bento-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app-root">
+  <aside>
+    <div class="side-top">
+      <div class="logo-box">
+        <div class="logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M6.5 18.5h11a4 4 0 0 0 .74-7.93A5.5 5.5 0 0 0 7.45 9.2 4.2 4.2 0 0 0 6.5 18.5Z"/></svg>
+        </div>
+        <span class="logo-title">GBF-Dock</span>
+      </div>
+      <button type="button" class="icon-btn" id="btn-side-toggle" title="展开/收起导航栏" aria-label="展开/收起导航栏">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list" aria-label="功能导航">
+      <button type="button" class="nav-btn active" data-tab="dash" title="仪表盘">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+        <span class="nav-label">仪表盘</span>
+      </button>
+      <button type="button" class="nav-btn" data-tab="settings" title="配置与缓存">
+        <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>
+        <span class="nav-label">配置与缓存</span>
+      </button>
+      <button type="button" class="nav-btn" data-tab="logs" title="运行日志">
+        <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        <span class="nav-label">运行日志</span>
+      </button>
+    </nav>
+
+    <div class="side-foot">
+      <div class="ver-row"><span>版本</span><span class="ver-tag" id="ver-badge">v1.0.0</span></div>
+      <button type="button" class="quit-btn" data-act="quit" title="退出并还原系统代理">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span class="quit-label">退出程序</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <div class="topbar">
+      <h1 class="page-title" id="page-title">仪表盘</h1>
+      <div class="top-right">
+        <span class="status-pill" id="state" role="status"><i></i><span>连接中…</span></span>
+        <button type="button" class="icon-btn" id="btn-theme" title="切换深/浅色外观" aria-label="切换深/浅色外观">
+          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 视图 1：统一 3 列 Bento 仪表盘 -->
+    <section class="view active" id="view-dash">
+      <div class="bento-grid">
+        <!-- Row 1 Col 1：运行状态 -->
+        <div class="card status-card">
+          <div class="card-title">
+            <div class="title-left">
+              <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <span class="lbl">运行状态</span>
+              <button type="button" class="tip-btn" data-tip="本程序仅解密缓存网页版与 Steam 版 GBF 官方 Akamai 静态资源（若遇已下线旧分片会自动回退主域名）；游戏 API（game.granbluefantasy.jp）及其他软件全部原样隧道透传，不使用 PAC。"></button>
+            </div>
+            <div class="title-right"><span class="tag" id="dash-proxy-tag">待机中</span></div>
+          </div>
+          <div class="status-hero">
+            <div class="status-main">
+              <div class="addr-val" id="dash-addr">127.0.0.1:8765</div>
+              <div class="tag-row">
+                <span class="tag" id="dash-cert-tag">证书检查中</span>
+                <button type="button" class="tag" id="dash-up-tag" data-act="detect-upstream" title="点击立即重新检测本地代理端口或加速器">节点检测中</button>
+              </div>
+            </div>
+            <div class="status-emblem" id="dash-emblem" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            </div>
+          </div>
+          <div class="status-foot">
+            <div class="kv-mini"><span>上游节点</span><strong id="dash-up-node">127.0.0.1:7890</strong></div>
+            <div class="kv-mini"><span>通道检测</span><strong id="dash-check-st">待检测</strong></div>
+          </div>
+        </div>
+
+        <!-- Row 1 Col 2：缓存读取率 -->
+        <div class="card metric-card">
+          <div class="card-title">
+            <div class="title-left">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              <span class="lbl">缓存读取率</span>
+              <button type="button" class="tip-btn" data-tip="本地直接命中的静态资源占比（含并发合并请求）。首次进游戏以新下载为主，后续加载读取率会持续升高。"></button>
+            </div>
+            <div class="title-right" id="dash-hit-sub">命中 0 次</div>
+          </div>
+          <div>
+            <div class="big-num" id="rate">0.0%</div>
+            <div class="sub-line" id="rate-sub">内存 0 · 304 0 · 合并 0 · 校验 0</div>
+          </div>
+          <div class="prog-track"><div class="prog-fill" id="rate-fill"></div></div>
+        </div>
+
+        <!-- Row 1 Col 3：已缓存空间 -->
+        <div class="card metric-card">
+          <div class="card-title">
+            <div class="title-left">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+              <span class="lbl">已缓存空间</span>
+              <button type="button" class="tip-btn" data-tip="已缓存在本地硬盘上的静态资源总大小，同一路径仅保留最新版本；右上角实时显示本次启动累计节省流量。"></button>
+            </div>
+            <div class="title-right" id="dash-saved">已省 0 KB</div>
+          </div>
+          <div>
+            <div class="big-num" id="usage-size">—</div>
+            <div class="sub-line"><span id="usage-files">统计中…</span><em id="errors"></em></div>
+          </div>
+          <div class="prog-track"><div class="prog-fill" style="width:100%; opacity:.28;"></div></div>
+        </div>
+
+        <!-- Row 2 Col 1：回源模式单行卡片 -->
+        <div class="card ctrl-card upstream-ctrl-card">
+          <div class="ctrl-row">
+            <div class="ctrl-info">
+              <div class="badge-ico">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              </div>
+              <div class="ctrl-head">
+                <b>回源</b>
+                <button type="button" class="tip-btn" data-tip="自动模式会依次检测：系统代理 → 系统 PAC → 本地常见代理端口（Clash / FlClash / Verge / v2rayN / Sing-box / Netch / SS / 岛风GO 8099 / ACGP 等 HTTP 与 SOCKS5）→ 加速器/TUN 虚拟网卡；点击「自动」可立即重新扫描。"></button>
+              </div>
+            </div>
+            <div class="seg" role="group" aria-label="回源模式">
+              <button type="button" data-upmode="auto">自动</button>
+              <button type="button" data-upmode="custom">自定义</button>
+              <button type="button" data-upmode="direct">直连</button>
+            </div>
+          </div>
+          <div class="drawer" id="dash-up-drawer" hidden>
+            <div class="input-row">
+              <input type="text" id="upstream-input" placeholder="127.0.0.1:7890 或 socks5://127.0.0.1:10808">
+              <button type="button" class="btn primary sm" id="upstream-save">保存</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2 Col 2：唯一代理接管开关 -->
+        <div class="card ctrl-card">
+          <div class="ctrl-row">
+            <div class="ctrl-info">
+              <div class="badge-ico" id="ico-proxy">
+                <svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+              </div>
+              <div class="ctrl-text">
+                <div class="ctrl-head">
+                  <b>代理接管</b>
+                  <button type="button" class="tip-btn" data-tip="开启后由本程序作为前端手动 HTTP 代理（127.0.0.1:8765）接管系统代理，关闭或退出程序时自动还原原有系统代理。"></button>
+                </div>
+                <div class="ctrl-sub" id="proxy-sub">已关闭</div>
+              </div>
+            </div>
+            <div id="proxy-toggle-slot"></div>
+          </div>
+        </div>
+
+        <!-- Row 2 Col 3：本机证书 -->
+        <div class="card ctrl-card">
+          <div class="ctrl-row">
+            <div class="ctrl-info">
+              <div class="badge-ico" id="ico-cert">
+                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div class="ctrl-text">
+                <div class="ctrl-head">
+                  <b>本机证书</b>
+                  <button type="button" class="tip-btn" data-tip="本地生成的根证书带名称约束，仅用于 *.akamaized.net 静态资源解密，不会影响其他任何网站或桌面软件。"></button>
+                </div>
+                <div class="ctrl-sub" id="cert-sub">检查中…</div>
+              </div>
+            </div>
+            <div id="cert-quick-slot"></div>
+          </div>
+          <div class="drawer" id="dash-cert-drawer" hidden>
+            <div class="btn-grid" id="cert-drawer-btns"></div>
+            <div class="ctrl-sub" id="cert-drawer-hint" style="white-space:normal;"></div>
+          </div>
+        </div>
+
+        <!-- Row 3 Col 1：快捷操作 -->
+        <div class="card act-card">
+          <div>
+            <div class="card-title">
+              <div class="title-left">
+                <svg class="ico" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span class="lbl">快捷操作</span>
+                <button type="button" class="tip-btn" data-tip="检测默认浏览器是否成功走本程序缓存；点击右侧折叠按钮可复制非默认浏览器检测地址或紧急恢复系统代理。"></button>
+              </div>
+              <div class="title-right">
+                <button type="button" class="chev-btn" data-drawer="dash-act-drawer" title="展开更多操作" aria-expanded="false">
+                  <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="btn-grid">
+              <button type="button" class="btn primary" data-act="open-game">启动游戏</button>
+              <button type="button" class="btn" data-act="check-browser">检测浏览器</button>
+              <button type="button" class="btn" data-act="open-folder">打开缓存目录</button>
+              <button type="button" class="btn danger" data-act="cache-clear" data-confirm="确定清空全部本地静态资源缓存？清空后再次进游戏会重新经代理下载。">清空缓存</button>
+            </div>
+          </div>
+          <div class="drawer" id="dash-act-drawer" hidden>
+            <div class="btn-grid">
+              <button type="button" class="btn primary sm" id="btn-dash-health">系统全面体检</button>
+              <button type="button" class="btn sm" id="btn-dash-import">导入旧缓存</button>
+              <button type="button" class="btn sm" data-act="ping-upstream">节点延迟测速</button>
+              <button type="button" class="btn sm" data-act="cache-inspect">缓存体检（清坏档）</button>
+              <button type="button" class="btn sm" data-act="proxy-reset">恢复系统代理</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:12px;color:var(--text-3);">手动检测地址：</span>
+              <code id="check-url-code"></code>
+              <button type="button" class="btn sm" id="copy-check-url">复制</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3 Col 2~3：实时动态 -->
+        <div class="card live-card">
+          <div class="card-title">
+            <div class="title-left">
+              <div class="stat-pills">
+                <span class="mini-pill blue" id="live-hits">命中 0</span>
+                <span class="mini-pill" id="live-misses">下载 0</span>
+                <span class="mini-pill bad" id="live-errs" hidden>失败 0</span>
+              </div>
+            </div>
+            <div class="title-right">
+              <button type="button" class="btn sm" data-goto="logs">完整日志 ›</button>
+            </div>
+          </div>
+          <pre class="log-box" id="log-preview"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 视图 2：配置与缓存 -->
+    <section class="view" id="view-settings">
+      <div class="cfg-grid">
+        <div class="card cfg-card">
+          <div class="card-title">
+            <div class="title-left">
+              <span class="lbl">上游代理节点设置</span>
+              <button type="button" class="tip-btn" data-tip="支持 HTTP / HTTPS / SOCKS5 与自动多端口扫描：自动模式会依次检测系统代理、PAC、常见本地代理端口以及加速器 / TUN 虚拟网卡。"></button>
+            </div>
+          </div>
+          <div class="cfg-kv"><span>当前模式</span><strong id="cfg-up-mode">自动检测（代理 / TUN）</strong></div>
+          <div class="cfg-kv"><span>当前上游通道</span><strong id="cfg-up-addr">—</strong></div>
+          <div class="cfg-kv"><span>检测来源</span><strong id="cfg-sys-manual">—</strong></div>
+          <div class="cfg-kv"><span>CDN 延迟测速</span><strong id="cfg-ping-val">未测速</strong></div>
+          <div class="input-row">
+            <input type="text" id="cfg-up-input" placeholder="127.0.0.1:7890 或 socks5://127.0.0.1:10808">
+            <button type="button" class="btn primary" id="cfg-up-save">应用</button>
+          </div>
+          <div class="btn-grid">
+            <button type="button" class="btn primary sm" data-act="detect-upstream">自动检测节点</button>
+            <button type="button" class="btn sm" data-act="ping-upstream">延迟测速</button>
+            <button type="button" class="btn sm" data-upmode="direct">切为直连</button>
+            <button type="button" class="btn sm" data-act="proxy-reset">重置并恢复系统代理</button>
+          </div>
+        </div>
+
+        <div class="card cfg-card">
+          <div class="card-title">
+            <div class="title-left">
+              <span class="lbl">根证书管理</span>
+              <button type="button" class="tip-btn" data-tip="Chromium 系浏览器直接读取当前用户证书库；Firefox 需手动导入下方证书文件。"></button>
+            </div>
+          </div>
+          <div class="cfg-kv"><span>信任状态</span><strong id="cfg-cert-st">检查中…</strong></div>
+          <div class="cfg-kv"><span>旧版本残留</span><strong id="cfg-cert-old">0 张</strong></div>
+          <div style="font-size:12px;color:var(--text-3);">Firefox 导入路径：<code id="cfg-cert-path"></code> <button type="button" class="btn sm" id="cfg-copy-cert">复制</button></div>
+          <div class="btn-grid" id="cfg-cert-btns"></div>
+        </div>
+
+        <div class="card cfg-card">
+          <div class="card-title">
+            <div class="title-left">
+              <span class="lbl">本地缓存存储</span>
+              <button type="button" class="tip-btn" data-tip="同一资源仅保留最新版本并校验 Magic Bytes 文件头。支持按资源类别展开查看占用明细并精准清理。"></button>
+            </div>
+            <div class="title-right">
+              <button type="button" class="chev-btn" id="cfg-cat-chev" data-drawer="cfg-cat-drawer" title="展开/收起分类明细" aria-expanded="false">
+                <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="cfg-kv"><span>占用空间</span><strong id="cfg-cache-size">—</strong></div>
+          <div class="cfg-kv"><span>文件总数</span><strong id="cfg-cache-files">—</strong></div>
+          <div class="cfg-kv"><span>内存热缓存 (SLRU)</span><strong id="cfg-ram-cache">0 KB / 96 MB</strong></div>
+          <div class="cfg-kv"><span>本次已省流量</span><strong id="cfg-served">0 KB</strong></div>
+          <div style="font-size:12px;color:var(--text-3);">缓存路径：<code id="cfg-cache-dir"></code></div>
+          <div class="btn-grid">
+            <button type="button" class="btn primary sm" id="btn-cfg-import">导入旧缓存</button>
+            <button type="button" class="btn sm" id="btn-cfg-cache-dir">更改目录</button>
+            <button type="button" class="btn sm" id="btn-cfg-cache-dir-reset" hidden>恢复默认目录</button>
+            <button type="button" class="btn sm" data-act="open-folder">打开文件夹</button>
+          </div>
+          <div class="btn-grid">
+            <button type="button" class="btn sm" id="btn-toggle-cat">分类明细清理</button>
+            <button type="button" class="btn sm" data-act="cache-inspect">缓存体检（清坏档）</button>
+            <button type="button" class="btn sm" data-act="cache-prune" data-confirm="将清理超过 60 天未访问的冷门活动缓存文件，常用战斗与立绘资源全部保留，确定执行？">清理 60 天旧缓存</button>
+            <button type="button" class="btn danger sm" data-act="cache-clear" data-confirm="确定清空全部本地静态资源缓存？">清空全部缓存</button>
+          </div>
+          <div class="drawer" id="cfg-cat-drawer" hidden>
+            <div class="cat-bar" id="cat-bar"></div>
+            <div class="cat-list" id="cat-list"><span class="cat-meta">展开后加载分类统计…</span></div>
+          </div>
+        </div>
+
+        <div class="card cfg-card">
+          <div class="card-title">
+            <div class="title-left">
+              <span class="lbl">局域网共享与系统集成</span>
+              <button type="button" class="tip-btn" data-tip="数据代理与本机控制面板已采用物理双端口隔离：即使开启局域网共享，管理界面与 API 仍严格锁死本机回环；支持配置 Windows 开机静默自启到系统托盘。"></button>
+            </div>
+          </div>
+          <div class="cfg-kv"><span>代理数据端口</span><strong id="cfg-data-addr">—</strong></div>
+          <div class="cfg-kv"><span>本机控制端口</span><strong id="cfg-admin-addr">—</strong></div>
+          <div class="cfg-kv">
+            <span>局域网共享（手机 / iPad）</span>
+            <span id="lan-toggle-slot"></span>
+          </div>
+          <div class="cfg-kv" id="autostart-row">
+            <span>开机静默自启（托盘最小化）</span>
+            <span id="autostart-toggle-slot"></span>
+          </div>
+          <div style="font-size:12px;color:var(--text-3);" id="lan-guide-row">手机向导页：<code id="lan-guide-url">未开启</code> <button type="button" class="btn sm" id="cfg-copy-lan" hidden>复制</button></div>
+          <div style="font-size:12px;color:var(--text-3);">插件分流 PAC：<code id="cfg-pac-url"></code> <button type="button" class="btn sm" id="cfg-copy-pac">复制</button></div>
+          <div class="btn-grid">
+            <button type="button" class="btn primary sm" id="btn-cfg-health">一键 6 维系统体检</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 视图 3：完整运行日志 -->
+    <section class="view" id="view-logs">
+      <div class="card full-log-card">
+        <div class="card-title">
+          <div class="title-left">
+            <span class="lbl">运行日志（最近 200 条）</span>
+            <button type="button" class="tip-btn" data-tip="记录代理启动、浏览器连通测试、资源域名接入及网络错误详情。"></button>
+          </div>
+          <div class="title-right">
+            <button type="button" class="btn sm" id="copy-log">复制全部日志</button>
+          </div>
+        </div>
+        <pre class="log-box" id="log"></pre>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="tooltip" role="tooltip"></div>
+<div id="toast" role="alert"></div>
+
+<div class="dialog-backdrop" id="import-backdrop" role="dialog" aria-modal="true">
+  <div class="dialog import-dialog">
+    <div class="health-head">
+      <h3>导入 / 并入旧缓存</h3>
+      <button type="button" class="btn sm" id="import-rescan">重新扫描本机</button>
+    </div>
+    <div class="imp-sec-lbl">
+      <span>自动检测到的本机旧缓存</span>
+      <span id="import-detect-st" style="font-weight:400;color:var(--text-3);font-size:11px;">等待扫描</span>
+    </div>
+    <div class="imp-cands" id="import-cands"></div>
+    <div class="imp-sec-lbl"><span>手动选择旧缓存目录</span></div>
+    <div class="input-row">
+      <input type="text" id="import-path" placeholder="选择或粘贴旧版 GBF-Dock / GBFCache、cache 或 CDN 域名文件夹路径">
+      <button type="button" class="btn sm" id="import-browse">浏览文件夹</button>
+      <button type="button" class="btn sm" id="import-preview-btn">扫描预览</button>
+    </div>
+    <div class="imp-sec-lbl"><span>重复资源合并策略</span></div>
+    <div class="seg imp-strat-seg">
+      <button type="button" class="active" data-imp-strat="newer">智能保留最新</button>
+      <button type="button" data-imp-strat="skip">仅补充缺失</button>
+      <button type="button" data-imp-strat="overwrite">强制覆盖</button>
+    </div>
+    <div class="imp-prev-box" id="import-preview-box" hidden>
+      <div class="cfg-kv"><span>识别目录</span><strong id="imp-res-path">—</strong></div>
+      <div class="cfg-kv"><span>缓存格式</span><strong id="imp-format">—</strong></div>
+      <div class="imp-prev-grid">
+        <div class="imp-prev-kv"><span>将新增文件</span><strong id="imp-new">0 个</strong></div>
+        <div class="imp-prev-kv"><span>将升级更新</span><strong id="imp-upd">0 个</strong></div>
+        <div class="imp-prev-kv"><span>跳过重复</span><strong id="imp-skip">0 个</strong></div>
+        <div class="imp-prev-kv"><span>过滤坏档</span><strong id="imp-bad">0 个</strong></div>
+      </div>
+      <div class="cfg-kv"><span>预计写入空间</span><strong id="imp-copy-bytes">0 KB（只读复制，不改动原目录）</strong></div>
+    </div>
+    <div class="imp-prev-box" id="import-prog-box" hidden>
+      <div class="cfg-kv"><span id="imp-prog-text">准备中…</span><strong id="imp-prog-detail">0 / 0</strong></div>
+      <div class="prog-track" style="margin-top:2px;"><div class="prog-fill" id="imp-prog-fill"></div></div>
+    </div>
+    <div class="dialog-acts">
+      <button type="button" class="btn danger sm" id="import-cancel" hidden>取消并入</button>
+      <button type="button" class="btn primary sm" id="import-start" disabled>开始并入缓存</button>
+      <button type="button" class="btn sm" id="import-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-backdrop" id="dialog-backdrop" role="dialog" aria-modal="true">
+  <div class="dialog">
+    <h3>请确认操作</h3>
+    <p id="dialog-msg"></p>
+    <div class="dialog-acts">
+      <button type="button" class="btn" id="dialog-cancel">取消</button>
+      <button type="button" class="btn primary" id="dialog-ok">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-backdrop" id="health-backdrop" role="dialog" aria-modal="true">
+  <div class="dialog health-dialog">
+    <div class="health-head">
+      <h3>系统 6 维度状态体检</h3>
+      <span class="health-pill" id="health-overall">检查中</span>
+    </div>
+    <p class="health-summary" id="health-summary">正在检查双端口隔离、根证书、系统代理、上游通道、CDN 连通性与本地缓存…</p>
+    <div class="health-list" id="health-list"></div>
+    <div class="dialog-acts">
+      <button type="button" class="btn sm" id="health-fix-bad" hidden>立即清理坏档</button>
+      <button type="button" class="btn sm" id="health-rerun">重新体检</button>
+      <button type="button" class="btn primary sm" id="health-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div id="ended">程序已退出并恢复系统代理，可以关闭此窗口。</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const appRoot = $("app-root");
+let busy = false, last = null, editingCustom = false;
+const pageOpened = Math.floor(Date.now() / 1000);
+const tabNames = { dash: "仪表盘", settings: "配置与缓存", logs: "运行日志" };
+
+// 注入精确几何居中的 SVG 感叹号图标
+const tipSVG = '<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><rect x="7.15" y="3.2" width="1.7" height="6.2" rx="0.85" fill="currentColor"/><circle cx="8" cy="11.9" r="1.05" fill="currentColor"/></svg>';
+document.querySelectorAll(".tip-btn").forEach((b) => { b.innerHTML = tipSVG; });
+
+// 主题初始化
+if (localStorage.getItem("gbf-theme") === "light") {
+  document.documentElement.dataset.theme = "light";
+}
+$("btn-theme").addEventListener("click", () => {
+  const isLight = document.documentElement.dataset.theme === "light";
+  document.documentElement.dataset.theme = isLight ? "dark" : "light";
+  localStorage.setItem("gbf-theme", isLight ? "dark" : "light");
+});
+
+$("btn-side-toggle").addEventListener("click", () => {
+  if (appRoot.classList.contains("collapsed")) {
+    appRoot.classList.remove("collapsed");
+    appRoot.classList.add("manual-expand");
+  } else {
+    appRoot.classList.add("collapsed");
+    appRoot.classList.remove("manual-expand");
+  }
+});
+
+function switchTab(tab) {
+  document.querySelectorAll(".nav-btn[data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + tab));
+  $("page-title").textContent = tabNames[tab] || "仪表盘";
+}
+document.addEventListener("click", (e) => {
+  const nb = e.target.closest(".nav-btn[data-tab], [data-goto]");
+  if (nb) switchTab(nb.dataset.tab || nb.dataset.goto);
+});
+
+const tipEl = $("tooltip");
+function showTip(target) {
+  const text = target.dataset.tip;
+  if (!text) return;
+  tipEl.textContent = text;
+  tipEl.classList.add("show");
+  const r = target.getBoundingClientRect();
+  const tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+  let left = r.left + r.width / 2 - tw / 2;
+  left = Math.max(10, Math.min(window.innerWidth - tw - 10, left));
+  let top = r.bottom + 8;
+  if (top + th > window.innerHeight - 10) top = Math.max(10, r.top - th - 8);
+  tipEl.style.left = Math.round(left) + "px";
+  tipEl.style.top = Math.round(top) + "px";
+}
+function hideTip() { tipEl.classList.remove("show"); }
+document.addEventListener("mouseover", (e) => { const t = e.target.closest(".tip-btn"); if (t) showTip(t); });
+document.addEventListener("mouseout", (e) => { if (e.target.closest(".tip-btn")) hideTip(); });
+document.addEventListener("focusin", (e) => { const t = e.target.closest(".tip-btn"); if (t) showTip(t); });
+document.addEventListener("focusout", (e) => { if (e.target.closest(".tip-btn")) hideTip(); });
+
+function toggleDrawer(id, btnEl, forceOpen) {
+  const dr = $(id);
+  if (!dr) return;
+  const open = typeof forceOpen === "boolean" ? forceOpen : dr.hidden;
+  dr.hidden = !open;
+  if (btnEl) {
+    btnEl.classList.toggle("open", open);
+    btnEl.setAttribute("aria-expanded", String(open));
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const cb = e.target.closest(".chev-btn[data-drawer]");
+  if (cb) toggleDrawer(cb.dataset.drawer, cb);
+});
+
+function changed(el, key) {
+  if (el.dataset.k === String(key)) return false;
+  el.dataset.k = key;
+  return true;
+}
+
+function h(tag, props, ...kids) {
+  const el = Object.assign(document.createElement(tag), props);
+  for (const k of kids) el.append(k);
+  return el;
+}
+
+function mkBtn(label, act, { primary, danger, confirm, sm } = {}) {
+  const c = ["btn", primary ? "primary" : "", danger ? "danger" : "", sm ? "sm" : ""].filter(Boolean).join(" ");
+  const b = h("button", { type: "button", textContent: label, className: c });
+  b.dataset.act = act;
+  if (confirm) b.dataset.confirm = confirm;
+  b.disabled = busy;
+  return b;
+}
+
+function bytes(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + " GB";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + " MB";
+  return Math.round(n / 1e3) + " KB";
+}
+
+function toast(text, bad) {
+  const t = $("toast");
+  t.textContent = text;
+  t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => (t.className = bad ? "bad" : ""), bad ? 5500 : 3200);
+}
+
+function confirmDialog(message) {
+  return new Promise((resolve) => {
+    const bd = $("dialog-backdrop");
+    $("dialog-msg").textContent = message;
+    bd.classList.add("open");
+    const done = (ok) => {
+      bd.classList.remove("open");
+      $("dialog-ok").onclick = null;
+      $("dialog-cancel").onclick = null;
+      bd.onclick = null;
+      resolve(ok);
+    };
+    $("dialog-ok").onclick = () => done(true);
+    $("dialog-cancel").onclick = () => done(false);
+    bd.onclick = (ev) => { if (ev.target === bd) done(false); };
+  });
+}
+
+async function api(path, method = "GET", bodyObj = null) {
+  const opts = { method, headers: { "X-GBF-Dock": "1" } };
+  if (bodyObj !== null) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(bodyObj);
+  }
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+
+function shortHost(u) {
+  if (!u) return "直连";
+  return u.replace(/^https?:\/\//, "");
+}
+
+function render(s) {
+  last = s;
+  const sys = s.system || {};
+  const active = !!sys.proxyEnabled;
+  const trusted = !!sys.certTrusted;
+  const old = sys.oldCerts || 0;
+  const total = s.hits + s.merged + s.misses;
+  const ratio = total ? ((s.hits + s.merged) / total * 100) : 0;
+
+  if (s.version) {
+    $("ver-badge").textContent = "v" + s.version;
+    document.title = "GBF-Dock v" + s.version + " 控制面板";
+  }
+  $("state").className = "status-pill on";
+  $("state").lastElementChild.textContent = "运行中";
+  $("dash-addr").textContent = s.addr;
+
+  // 状态卡（仅展示状态徽标，不与下方开关重叠）
+  $("dash-proxy-tag").className = "tag " + (active ? "ok" : "");
+  $("dash-proxy-tag").textContent = active ? "● 接管中" : "待机中";
+
+  $("dash-cert-tag").className = "tag " + (trusted ? "ok" : "warn");
+  $("dash-cert-tag").textContent = trusted ? "证书已信任" : "证书未安装";
+
+  if (s.upstreamProxy) {
+    if (s.upstreamAlive === false) {
+      $("dash-up-tag").className = "tag warn";
+      $("dash-up-tag").textContent = "节点未响应 " + shortHost(s.upstreamProxy);
+    } else {
+      $("dash-up-tag").className = "tag ok";
+      $("dash-up-tag").textContent = "节点 " + shortHost(s.upstreamProxy);
+    }
+  } else if (s.tunAdapter) {
+    $("dash-up-tag").className = "tag ok";
+    $("dash-up-tag").textContent = "TUN / 加速器通道";
+  } else {
+    $("dash-up-tag").className = "tag";
+    $("dash-up-tag").textContent = "直连 · 点击重测";
+  }
+
+  $("dash-emblem").classList.toggle("on", active);
+
+  const pingSuffix = s.lastPingMs > 0 ? (" · " + s.lastPingMs + "ms") : "";
+  if (s.upstreamProxy) {
+    $("dash-up-node").textContent = shortHost(s.upstreamProxy) + pingSuffix;
+    $("dash-up-node").style.color = s.upstreamAlive === false ? "var(--warn)" : "";
+  } else if (s.tunAdapter) {
+    $("dash-up-node").textContent = "TUN (" + s.tunAdapter + ")" + pingSuffix;
+    $("dash-up-node").style.color = "var(--ok)";
+  } else {
+    $("dash-up-node").textContent = "直连（无代理端口）" + pingSuffix;
+    $("dash-up-node").style.color = "";
+  }
+  if (s.checkedAt) {
+    const t = new Date(s.checkedAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    $("dash-check-st").textContent = "✓ " + t + " 通过";
+    $("dash-check-st").style.color = "var(--ok)";
+  } else {
+    $("dash-check-st").textContent = "待检测";
+    $("dash-check-st").style.color = "";
+  }
+
+  // 缓存读取率 & 已缓存空间
+  $("rate").textContent = ratio.toFixed(1) + "%";
+  $("rate-fill").style.width = (total ? Math.min(100, ratio).toFixed(1) : "0") + "%";
+  $("dash-hit-sub").textContent = "命中 " + (s.hits + s.merged).toLocaleString() + " 次";
+  $("rate-sub").textContent = "内存 " + (s.ramHits || 0).toLocaleString() + " · 304 " + (s.hits304 || 0).toLocaleString() + " · 合并 " + s.merged.toLocaleString() + " · 校验 " + s.revalidated.toLocaleString() + (s.passthrough ? " · 透传 " + s.passthrough.toLocaleString() : "");
+
+  if (typeof s.cachedBytes === "number" && typeof s.cachedFiles === "number") {
+    $("usage-size").textContent = bytes(s.cachedBytes);
+    $("usage-files").textContent = "共 " + s.cachedFiles.toLocaleString() + " 文件 · 下载 " + s.misses.toLocaleString();
+    $("cfg-cache-size").textContent = bytes(s.cachedBytes);
+    $("cfg-cache-files").textContent = s.cachedFiles.toLocaleString() + " 个";
+  }
+  if (typeof s.ramMaxBytes === "number") {
+    $("cfg-ram-cache").textContent = bytes(s.ramBytes || 0) + " / " + bytes(s.ramMaxBytes) + "（" + (s.ramItems || 0).toLocaleString() + " 个 · 命中 " + (s.ramHits || 0).toLocaleString() + "）";
+  }
+  $("errors").textContent = s.errors ? "失败 " + s.errors : "";
+  $("dash-saved").textContent = "已省 " + bytes(s.servedBytes);
+  $("cfg-served").textContent = bytes(s.servedBytes);
+  if (s.cacheDir && changed($("cfg-cache-dir"), s.cacheDir)) {
+    $("cfg-cache-dir").textContent = s.cacheDir;
+  }
+  $("btn-cfg-cache-dir-reset").hidden = !s.cacheDir || !s.defaultCacheDir || (s.cacheDir === s.defaultCacheDir);
+
+  // 回源模式分段器
+  const uiMode = editingCustom ? "custom" : (s.upstreamMode || "auto");
+  document.querySelectorAll("button[data-upmode]").forEach((b) => b.classList.toggle("active", b.dataset.upmode === uiMode));
+  $("dash-up-drawer").hidden = uiMode !== "custom";
+  if (!editingCustom && document.activeElement !== $("upstream-input") && s.upstreamProxy) {
+    if (changed($("upstream-input"), s.upstreamProxy)) $("upstream-input").value = s.upstreamProxy;
+  }
+  if (document.activeElement !== $("cfg-up-input") && s.upstreamProxy) {
+    if (changed($("cfg-up-input"), s.upstreamProxy)) $("cfg-up-input").value = s.upstreamProxy;
+  }
+
+  // 唯一代理接管开关卡片
+  $("ico-proxy").className = "badge-ico " + (active ? "ok" : "");
+  const portPart = (s.addr || "").split(":")[1] || "8765";
+  $("proxy-sub").textContent = active ? ("已开启 · " + portPart) : "已关闭";
+  if (!s.windows) {
+    $("proxy-toggle-slot").replaceChildren();
+  } else {
+    const tog = h("button", { type: "button", className: "toggle" + (active ? " on" : ""), title: active ? "关闭代理接管" : "开启代理接管" });
+    tog.dataset.act = active ? "proxy-off" : "proxy-on";
+    tog.disabled = busy;
+    $("proxy-toggle-slot").replaceChildren(tog);
+  }
+
+  // 本机证书卡片
+  $("ico-cert").className = "badge-ico " + (trusted ? "ok" : "");
+  $("cert-sub").textContent = trusted ? (old ? "已信任（有旧证书）" : "已信任") : "未安装";
+  if (!s.windows) {
+    $("cert-quick-slot").replaceChildren();
+  } else if (!trusted && !old) {
+    $("cert-quick-slot").replaceChildren(mkBtn("安装", "cert-install", { primary: true, sm: true }));
+  } else {
+    const isOpen = !$("dash-cert-drawer").hidden;
+    const chev = h("button", {
+      type: "button",
+      className: "chev-btn" + (isOpen ? " open" : ""),
+      title: "展开证书操作",
+      onclick: (ev) => { ev.stopPropagation(); toggleDrawer("dash-cert-drawer", chev); }
+    });
+    chev.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>';
+    $("cert-quick-slot").replaceChildren(chev);
+  }
+
+  const certActs = [];
+  if (s.windows) {
+    if (!trusted) certActs.push(mkBtn("安装证书", "cert-install", { primary: true, sm: true }));
+    if (old) certActs.push(mkBtn("清理旧证书 (" + old + ")", "cert-cleanup", { sm: true, confirm: "Windows 会为每张旧证书弹出一次删除确认，请都选“是”。" }));
+    if (trusted) certActs.push(mkBtn("移除证书", "cert-uninstall", { danger: true, sm: true, confirm: "移除后开启代理接管时游戏静态资源会报证书错误，确定移除？" }));
+  }
+  $("cert-drawer-btns").replaceChildren(...certActs);
+  $("cert-drawer-hint").textContent = "Firefox 需在设置中手动导入：" + s.certPath;
+
+  const link = s.checkURL + "?t=" + pageOpened;
+  if (changed($("check-url-code"), link)) $("check-url-code").textContent = link;
+
+  $("live-hits").textContent = "命中 " + s.hits.toLocaleString();
+  $("live-misses").textContent = "下载 " + s.misses.toLocaleString();
+  $("live-errs").hidden = !s.errors;
+  $("live-errs").textContent = "失败 " + s.errors;
+
+  const modeMap = { auto: "自动检测（代理 / TUN）", custom: "自定义代理", direct: "直连回源" };
+  $("cfg-up-mode").textContent = modeMap[s.upstreamMode] || "自动检测";
+  $("cfg-up-addr").textContent = s.upstreamProxy
+    ? (s.upstreamProxy + (s.upstreamAlive === false ? "（端口未响应）" : ""))
+    : (s.tunAdapter ? ("TUN / 加速器通道 (" + s.tunAdapter + ")") : "直连回源");
+  $("cfg-sys-manual").textContent = (s.upstreamSource || "—") + (sys.manualProxy && !sys.proxyEnabled ? " · 系统 " + sys.manualProxy : "");
+  $("cfg-ping-val").textContent = s.lastPingMs > 0 ? (s.lastPingMs + " ms") : "未测速";
+  $("cfg-cert-st").textContent = trusted ? "已信任" : "未安装";
+  $("cfg-cert-old").textContent = old + " 张";
+  if (changed($("cfg-cert-path"), s.certPath)) $("cfg-cert-path").textContent = s.certPath;
+  $("cfg-cert-btns").replaceChildren(...certActs.map((b) => { const c = b.cloneNode(true); c.classList.remove("sm"); return c; }));
+
+  const lanOn = !!s.allowLAN;
+  const lanPort = (s.addr || "").split(":")[1] || "8765";
+  $("cfg-data-addr").textContent = lanOn ? ("0.0.0.0:" + lanPort + " · 局域网开放") : (s.addr || "127.0.0.1:8765");
+  $("cfg-admin-addr").textContent = (s.adminAddr || s.addr || "127.0.0.1:8766") + (s.dualPort ? " · 物理隔离" : "");
+  const lanTog = h("button", { type: "button", className: "toggle" + (lanOn ? " on" : ""), title: lanOn ? "关闭局域网共享" : "开启局域网共享" });
+  lanTog.dataset.act = lanOn ? "lan-off" : "lan-on";
+  lanTog.disabled = busy;
+  $("lan-toggle-slot").replaceChildren(lanTog);
+
+  if (!s.windows) {
+    $("autostart-row").hidden = true;
+    $("autostart-toggle-slot").replaceChildren();
+  } else {
+    $("autostart-row").hidden = false;
+    const autoOn = !!s.autoStart;
+    const autoTog = h("button", { type: "button", className: "toggle" + (autoOn ? " on" : ""), title: autoOn ? "关闭开机自启" : "开启开机静默自启（托盘最小化）" });
+    autoTog.dataset.act = autoOn ? "autostart-off" : "autostart-on";
+    autoTog.disabled = busy;
+    $("autostart-toggle-slot").replaceChildren(autoTog);
+  }
+
+  if (lanOn) {
+    const lanIP = (s.lanIPs && s.lanIPs.length) ? s.lanIPs[0] : "127.0.0.1";
+    const lanURL = "http://" + lanIP + ":" + lanPort + "/";
+    if (changed($("lan-guide-url"), lanURL)) $("lan-guide-url").textContent = lanURL;
+    $("cfg-copy-lan").hidden = false;
+  } else {
+    if (changed($("lan-guide-url"), "off")) $("lan-guide-url").textContent = "未开启";
+    $("cfg-copy-lan").hidden = true;
+  }
+  const pacText = s.pacURL || ("http://" + s.addr + "/proxy.pac");
+  if (changed($("cfg-pac-url"), pacText)) $("cfg-pac-url").textContent = pacText;
+
+  const lines = s.logs || [];
+  const fullLog = $("log");
+  const atEnd = fullLog.scrollHeight - fullLog.scrollTop - fullLog.clientHeight < 28;
+  fullLog.textContent = lines.join("\n");
+  if (atEnd) fullLog.scrollTop = fullLog.scrollHeight;
+
+  const prevLog = $("log-preview");
+  prevLog.textContent = lines.slice(-6).join("\n");
+  prevLog.scrollTop = prevLog.scrollHeight;
+}
+
+async function refresh() {
+  if (busy) return;
+  try {
+    render(await api("/api/status"));
+  } catch {
+    $("state").className = "status-pill off";
+    $("state").lastElementChild.textContent = "已停止";
+  }
+}
+
+async function usage() {
+  try {
+    const u = await api("/api/usage");
+    $("usage-size").textContent = bytes(u.bytes);
+    $("usage-files").textContent = "共 " + u.files.toLocaleString() + " 文件" + (last ? " · 下载 " + last.misses.toLocaleString() : "");
+    $("cfg-cache-size").textContent = bytes(u.bytes);
+    $("cfg-cache-files").textContent = u.files.toLocaleString() + " 个";
+    if (!$("cfg-cat-drawer").hidden) {
+      loadBreakdown();
+    }
+  } catch {}
+}
+
+const catColors = {
+  image: "#3b82f6",
+  audio: "#a855f7",
+  script: "#22c55e",
+  data: "#f59e0b",
+  other: "#64748b",
+};
+
+async function loadBreakdown() {
+  try {
+    const d = await api("/api/cache-breakdown");
+    const cats = d.categories || [];
+    const totalBytes = d.totalBytes || 0;
+    const bar = $("cat-bar");
+    const list = $("cat-list");
+    bar.replaceChildren();
+    list.replaceChildren();
+    for (const c of cats) {
+      if (totalBytes > 0 && c.bytes > 0) {
+        const pct = Math.max(2, (c.bytes / totalBytes) * 100);
+        const seg = h("div", { className: "cat-seg", title: c.label + " · " + bytes(c.bytes) });
+        seg.style.width = pct.toFixed(1) + "%";
+        seg.style.background = catColors[c.key] || "#64748b";
+        bar.append(seg);
+      }
+      const dot = h("span", { className: "cat-dot" });
+      dot.style.background = catColors[c.key] || "#64748b";
+      const left = h("span", { className: "cat-left" }, dot, h("span", { textContent: c.label }));
+      const meta = h("span", { className: "cat-meta", textContent: c.files.toLocaleString() + " 个 · " + bytes(c.bytes) });
+      const rightChildren = [meta];
+      if (c.files > 0) {
+        const clr = h("button", { type: "button", className: "btn danger sm", textContent: "清理" });
+        clr.dataset.catClear = c.key;
+        clr.dataset.catLabel = c.label;
+        clr.disabled = busy;
+        rightChildren.push(clr);
+      }
+      list.append(h("div", { className: "cat-row" }, left, h("div", { className: "cat-right" }, ...rightChildren)));
+    }
+  } catch {
+    $("cat-list").replaceChildren(h("span", { className: "cat-meta", textContent: "读取分类明细失败" }));
+  }
+}
+
+async function runHealthCheck() {
+  const bd = $("health-backdrop");
+  bd.classList.add("open");
+  const ov = $("health-overall");
+  ov.className = "health-pill warn";
+  ov.textContent = "体检中…";
+  $("health-summary").textContent = "正在检测双端口隔离、根证书、系统代理、上游通道、CDN 延迟与本地缓存…";
+  $("health-fix-bad").hidden = true;
+  $("health-rerun").disabled = true;
+  $("health-list").replaceChildren();
+  try {
+    const rep = await api("/api/health-check", "POST");
+    const ovMap = { ok: ["全部健康", "ok"], warn: ["发现提示项", "warn"], fail: ["发现异常项", "fail"] };
+    const [ovTxt, ovCls] = ovMap[rep.overall] || ["检测完成", "warn"];
+    ov.className = "health-pill " + ovCls;
+    ov.textContent = ovTxt;
+    $("health-summary").textContent = rep.summary || "";
+    $("health-fix-bad").hidden = !(rep.badCache > 0);
+    const stMap = { ok: ["正常", "ok"], warn: ["提示", "warn"], fail: ["异常", "fail"] };
+    const nodes = (rep.items || []).map((it) => {
+      const [sTxt, sCls] = stMap[it.status] || ["未知", "warn"];
+      const top = h("div", { className: "health-row-top" },
+        h("span", { className: "health-name", textContent: it.name }),
+        h("span", { className: "health-pill " + sCls, textContent: sTxt })
+      );
+      const kids = [top, h("div", { className: "health-detail", textContent: it.detail })];
+      if (it.hint) kids.push(h("div", { className: "health-hint", textContent: "建议：" + it.hint }));
+      return h("div", { className: "health-item" }, ...kids);
+    });
+    $("health-list").replaceChildren(...nodes);
+    refresh();
+  } catch {
+    ov.className = "health-pill fail";
+    ov.textContent = "检测失败";
+    $("health-summary").textContent = "无法完成系统体检，请确认程序未退出。";
+  } finally {
+    $("health-rerun").disabled = false;
+  }
+}
+
+function setBusy(on, b) {
+  busy = on;
+  document.querySelectorAll("button[data-act], button[data-upmode]").forEach((x) => (x.disabled = on));
+  if (b && b.classList.contains("btn") && !b.classList.contains("chev-btn")) {
+    if (on) { b._lbl = b.textContent; b.textContent = "处理中…"; }
+    else if (b._lbl) b.textContent = b._lbl;
+  }
+}
+
+document.addEventListener("click", async (e) => {
+  const modeBtn = e.target.closest("button[data-upmode]");
+  if (modeBtn && !busy) {
+    const mode = modeBtn.dataset.upmode;
+    if (mode === "custom") {
+      editingCustom = true;
+      $("dash-up-drawer").hidden = false;
+      document.querySelectorAll("button[data-upmode]").forEach((x) => x.classList.toggle("active", x.dataset.upmode === "custom"));
+      $("upstream-input").focus();
+      return;
+    }
+    editingCustom = false;
+    setBusy(true, modeBtn);
+    try {
+      const r = mode === "auto"
+        ? await api("/api/detect-upstream", "POST")
+        : await api("/api/set-upstream", "POST", { mode });
+      if (r.error) toast("失败：" + r.error, true);
+      else if (r.message) toast(r.message);
+    } catch { toast("设置失败，程序未响应", true); }
+    setBusy(false, modeBtn);
+    await refresh();
+    return;
+  }
+
+  const b = e.target.closest("button[data-act]");
+  if (!b || busy) return;
+  const act = b.dataset.act;
+  if (b.dataset.confirm && !(await confirmDialog(b.dataset.confirm))) return;
+  setBusy(true, b);
+  try {
+    const r = await api("/api/" + act, "POST");
+    if (r.error) toast("失败：" + r.error, true);
+    else if (r.message) toast(r.message);
+    if (act === "quit") {
+      $("ended").style.display = "grid";
+      setTimeout(() => window.close(), 350);
+      return;
+    }
+  } catch {
+    toast("程序没有响应", true);
+  }
+  setBusy(false, b);
+  await refresh();
+  if (act === "cache-clear" || act === "cache-inspect" || act === "cache-prune") usage();
+});
+
+document.addEventListener("click", async (e) => {
+  const cb = e.target.closest(".chev-btn[data-drawer]");
+  if (cb && cb.dataset.drawer === "cfg-cat-drawer" && !$("cfg-cat-drawer").hidden) {
+    loadBreakdown();
+  }
+  const catBtn = e.target.closest("button[data-cat-clear]");
+  if (catBtn && !busy) {
+    const cat = catBtn.dataset.catClear;
+    const lbl = catBtn.dataset.catLabel || cat;
+    if (!(await confirmDialog("确定清理「" + lbl + "」分类下的全部缓存文件？其他分类资源将完整保留。"))) return;
+    setBusy(true, catBtn);
+    try {
+      const r = await api("/api/cache-clear-category", "POST", { category: cat });
+      if (r.error) toast("失败：" + r.error, true);
+      else if (r.message) toast(r.message);
+    } catch {
+      toast("清理失败，程序未响应", true);
+    }
+    setBusy(false, catBtn);
+    await refresh();
+    await usage();
+  }
+});
+
+$("btn-toggle-cat").addEventListener("click", () => {
+  const willOpen = $("cfg-cat-drawer").hidden;
+  toggleDrawer("cfg-cat-drawer", $("cfg-cat-chev"), willOpen);
+  if (willOpen) loadBreakdown();
+});
+$("btn-dash-health").addEventListener("click", runHealthCheck);
+$("btn-cfg-health").addEventListener("click", runHealthCheck);
+$("health-rerun").addEventListener("click", runHealthCheck);
+$("health-close").addEventListener("click", () => $("health-backdrop").classList.remove("open"));
+$("health-backdrop").addEventListener("click", (ev) => { if (ev.target === $("health-backdrop")) $("health-backdrop").classList.remove("open"); });
+$("health-fix-bad").addEventListener("click", async () => {
+  if (busy) return;
+  const b = $("health-fix-bad");
+  setBusy(true, b);
+  try {
+    const r = await api("/api/cache-inspect", "POST");
+    if (r.error) toast("失败：" + r.error, true);
+    else if (r.message) toast(r.message);
+  } catch { toast("清理失败，程序未响应", true); }
+  setBusy(false, b);
+  await usage();
+  await runHealthCheck();
+});
+
+let importStrat = "newer", lastImportPrev = null, importBusy = false, importPollTimer = null;
+
+function setImportBusy(on) {
+  importBusy = on;
+  for (const id of ["import-rescan", "import-browse", "import-preview-btn"]) {
+    $(id).disabled = on;
+  }
+  $("import-cancel").hidden = !on;
+  $("import-cancel").disabled = !on;
+  $("import-start").disabled = on || !lastImportPrev || ((lastImportPrev.newFiles + lastImportPrev.updatableFiles) <= 0);
+}
+
+function renderImportProgress(p) {
+  if (!p) return;
+  $("import-prog-box").hidden = false;
+  const total = p.total || 0;
+  const proc = p.processed || 0;
+  const pct = total > 0 ? Math.min(100, Math.round((proc / total) * 100)) : (p.done ? 100 : 8);
+  $("imp-prog-text").textContent = p.stage || (p.running ? "正在并入缓存…" : "处理完成");
+  $("imp-prog-detail").textContent = total > 0
+    ? (proc.toLocaleString() + " / " + total.toLocaleString() + " (" + pct + "%) · 写入 " + bytes(p.copiedBytes || 0))
+    : ("已写入 " + bytes(p.copiedBytes || 0));
+  $("imp-prog-fill").style.width = pct + "%";
+}
+
+function stopImportPolling() {
+  if (importPollTimer) {
+    clearTimeout(importPollTimer);
+    importPollTimer = null;
+  }
+}
+
+async function pollImportProgress() {
+  stopImportPolling();
+  try {
+    const p = await api("/api/cache-import-progress");
+    renderImportProgress(p);
+    if (p.running) {
+      setImportBusy(true);
+      $("import-start").textContent = "并入中…";
+      importPollTimer = setTimeout(pollImportProgress, 250);
+      return;
+    }
+    setImportBusy(false);
+    if (p.error) {
+      toast("并入失败：" + p.error, true);
+    } else if (p.result && p.result.message) {
+      toast(p.result.message);
+    }
+    await refresh();
+    await usage();
+    if ($("import-path").value.trim()) {
+      await previewImport();
+      detectOldCaches();
+    }
+  } catch {
+    setImportBusy(false);
+  }
+}
+
+function showImportPreview(p) {
+  lastImportPrev = p;
+  $("import-preview-box").hidden = false;
+  $("imp-res-path").textContent = p.resolvedPath || p.path || "—";
+  $("imp-format").textContent = p.format || "—";
+  $("imp-new").textContent = (p.newFiles || 0).toLocaleString() + " 个";
+  $("imp-upd").textContent = (p.updatableFiles || 0).toLocaleString() + " 个";
+  $("imp-skip").textContent = (p.skippedFiles || 0).toLocaleString() + " 个";
+  $("imp-bad").textContent = (p.invalidFiles || 0).toLocaleString() + " 个";
+  $("imp-copy-bytes").textContent = bytes(p.willCopyBytes || 0) + "（只读复制，不改动原目录）";
+  const willDo = (p.newFiles || 0) + (p.updatableFiles || 0);
+  $("import-start").disabled = importBusy || willDo <= 0;
+  $("import-start").textContent = willDo > 0 ? ("开始并入缓存（" + willDo.toLocaleString() + " 个）") : "无可并入的新文件";
+}
+
+async function detectOldCaches() {
+  $("import-detect-st").textContent = "正在扫描本机常用目录…";
+  $("import-cands").replaceChildren();
+  try {
+    const d = await api("/api/cache-detect-old");
+    const cands = d.candidates || [];
+    if (!cands.length) {
+      $("import-detect-st").textContent = "未自动发现旧缓存，请点击右侧浏览或粘贴路径";
+      return;
+    }
+    $("import-detect-st").textContent = "发现 " + cands.length + " 个可用目录（点击选中）";
+    const curPath = $("import-path").value.trim();
+    const btns = cands.map((c) => {
+      const b = h("button", { type: "button", className: "imp-cand" + (curPath === c.path || curPath === c.resolvedPath ? " active" : "") });
+      const left = h("div", {},
+        h("div", { className: "imp-cand-path", textContent: c.resolvedPath || c.path }),
+        h("div", { className: "imp-cand-sub", textContent: c.format + " · 共 " + (c.validFiles || 0).toLocaleString() + " 个 (" + bytes(c.validBytes || 0) + ")" })
+      );
+      const pill = h("span", { className: "mini-pill blue", textContent: "可新增 " + (c.newFiles || 0) });
+      b.append(left, pill);
+      b.onclick = () => {
+        document.querySelectorAll(".imp-cand").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active");
+        $("import-path").value = c.resolvedPath || c.path;
+        if (importStrat === "newer") showImportPreview(c);
+        else previewImport();
+      };
+      return b;
+    });
+    $("import-cands").replaceChildren(...btns);
+  } catch {
+    $("import-detect-st").textContent = "扫描失败";
+  }
+}
+
+async function previewImport() {
+  const pathVal = $("import-path").value.trim();
+  if (!pathVal) {
+    toast("请先选择或输入旧缓存文件夹路径", true);
+    return;
+  }
+  setImportBusy(true);
+  $("import-preview-btn").textContent = "扫描中…";
+  try {
+    const r = await api("/api/cache-import-preview", "POST", { path: pathVal, strategy: importStrat });
+    if (r.error) {
+      toast("预览失败：" + r.error, true);
+      $("import-preview-box").hidden = true;
+      lastImportPrev = null;
+    } else {
+      showImportPreview(r);
+      if ((r.validFiles || 0) === 0) toast("该目录未检测到有效的 GBF 静态资源缓存", true);
+    }
+  } catch {
+    toast("预览失败，程序未响应", true);
+  } finally {
+    $("import-preview-btn").textContent = "扫描预览";
+    setImportBusy(false);
+  }
+}
+
+async function openImportModal() {
+  $("import-backdrop").classList.add("open");
+  detectOldCaches();
+  try {
+    const p = await api("/api/cache-import-progress");
+    if (p && p.running) {
+      renderImportProgress(p);
+      setImportBusy(true);
+      $("import-start").textContent = "并入中…";
+      pollImportProgress();
+    } else {
+      $("import-prog-box").hidden = true;
+    }
+  } catch {}
+}
+
+$("btn-dash-import").addEventListener("click", openImportModal);
+$("btn-cfg-import").addEventListener("click", openImportModal);
+$("import-rescan").addEventListener("click", detectOldCaches);
+$("import-close").addEventListener("click", () => { stopImportPolling(); $("import-backdrop").classList.remove("open"); });
+$("import-backdrop").addEventListener("click", (ev) => { if (ev.target === $("import-backdrop")) { stopImportPolling(); $("import-backdrop").classList.remove("open"); } });
+$("import-preview-btn").addEventListener("click", previewImport);
+$("import-path").addEventListener("keydown", (e) => { if (e.key === "Enter") previewImport(); });
+
+document.querySelectorAll("button[data-imp-strat]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (importBusy) return;
+    importStrat = btn.dataset.impStrat;
+    document.querySelectorAll("button[data-imp-strat]").forEach((x) => x.classList.toggle("active", x === btn));
+    if ($("import-path").value.trim()) previewImport();
+  });
+});
+
+$("import-browse").addEventListener("click", async () => {
+  if (importBusy) return;
+  setImportBusy(true);
+  $("import-browse").textContent = "等待选择…";
+  try {
+    const r = await api("/api/cache-pick-folder", "POST", { title: "选择旧缓存目录" });
+    if (r.error) {
+      toast(r.error, true);
+    } else if (!r.cancelled && r.path) {
+      $("import-path").value = r.path;
+      setImportBusy(false);
+      await previewImport();
+      return;
+    }
+  } catch {
+    toast("无法打开文件夹选择器", true);
+  } finally {
+    $("import-browse").textContent = "浏览文件夹";
+    setImportBusy(false);
+  }
+});
+
+$("import-cancel").addEventListener("click", async () => {
+  $("import-cancel").disabled = true;
+  try {
+    const r = await api("/api/cache-import-cancel", "POST");
+    if (r.message) toast(r.message);
+  } catch {
+    toast("取消请求失败", true);
+  }
+});
+
+$("import-start").addEventListener("click", async () => {
+  if (importBusy || !lastImportPrev) return;
+  const pathVal = $("import-path").value.trim();
+  const willAdd = (lastImportPrev.newFiles || 0);
+  const willUpd = (lastImportPrev.updatableFiles || 0);
+  const ok = await confirmDialog("将把所选目录中的有效缓存并入当前缓存（新增 " + willAdd + " 个、更新 " + willUpd + " 个），原目录文件不会被删除或修改，确定执行？");
+  if (!ok) return;
+  setImportBusy(true);
+  $("import-start").textContent = "并入中…";
+  $("import-prog-box").hidden = false;
+  $("imp-prog-text").textContent = "正在启动并入任务…";
+  $("imp-prog-detail").textContent = "0 / " + (willAdd + willUpd).toLocaleString();
+  $("imp-prog-fill").style.width = "4%";
+  try {
+    const r = await api("/api/cache-import-merge", "POST", { path: pathVal, strategy: importStrat, async: true });
+    if (r.error) {
+      toast("并入失败：" + r.error, true);
+      setImportBusy(false);
+      return;
+    }
+    if (r.progress) renderImportProgress(r.progress);
+    pollImportProgress();
+  } catch {
+    toast("并入失败，程序未响应", true);
+    setImportBusy(false);
+  }
+});
+
+$("btn-cfg-cache-dir").addEventListener("click", async () => {
+  if (busy) return;
+  const btn = $("btn-cfg-cache-dir");
+  setBusy(true, btn);
+  try {
+    const picked = await api("/api/cache-pick-folder", "POST", { title: "选择新的本地缓存存储目录" });
+    if (picked.error) {
+      toast(picked.error, true);
+    } else if (!picked.cancelled && picked.path) {
+      const ok = await confirmDialog("将把缓存目录切换至：\n" + picked.path + "\n\n后续新下载及查询将使用该目录（不会删除原目录中的旧文件，可通过“导入旧缓存”合并）。确定切换？");
+      if (ok) {
+        const res = await api("/api/set-cache-dir", "POST", { path: picked.path });
+        if (res.error) toast("切换失败：" + res.error, true);
+        else if (res.message) toast(res.message);
+      }
+    }
+  } catch {
+    toast("更改目录失败，程序未响应", true);
+  } finally {
+    setBusy(false, btn);
+    await refresh();
+    await usage();
+  }
+});
+
+$("btn-cfg-cache-dir-reset").addEventListener("click", async () => {
+  if (busy || !last) return;
+  const ok = await confirmDialog("确定恢复使用默认缓存目录：\n" + (last.defaultCacheDir || "") + " ？");
+  if (!ok) return;
+  const btn = $("btn-cfg-cache-dir-reset");
+  setBusy(true, btn);
+  try {
+    const res = await api("/api/set-cache-dir", "POST", { path: "" });
+    if (res.error) toast("恢复失败：" + res.error, true);
+    else if (res.message) toast(res.message);
+  } catch {
+    toast("恢复失败，程序未响应", true);
+  } finally {
+    setBusy(false, btn);
+    await refresh();
+    await usage();
+  }
+});
+
+async function saveCustomUpstream(inputEl, btnEl) {
+  if (busy) return;
+  const val = inputEl.value.trim();
+  setBusy(true, btnEl);
+  try {
+    const r = await api("/api/set-upstream", "POST", { mode: "custom", proxy: val });
+    if (r.error) toast("失败：" + r.error, true);
+    else {
+      editingCustom = false;
+      if (r.message) toast(r.message);
+    }
+  } catch { toast("保存失败，程序未响应", true); }
+  setBusy(false, btnEl);
+  await refresh();
+}
+$("upstream-save").addEventListener("click", () => saveCustomUpstream($("upstream-input"), $("upstream-save")));
+$("cfg-up-save").addEventListener("click", () => saveCustomUpstream($("cfg-up-input"), $("cfg-up-save")));
+$("upstream-input").addEventListener("keydown", (e) => { if (e.key === "Enter") $("upstream-save").click(); });
+$("cfg-up-input").addEventListener("keydown", (e) => { if (e.key === "Enter") $("cfg-up-save").click(); });
+
+$("copy-check-url").addEventListener("click", () => {
+  navigator.clipboard.writeText($("check-url-code").textContent).then(
+    () => toast("已复制检测地址"),
+    () => toast("复制失败", true)
+  );
+});
+$("cfg-copy-cert").addEventListener("click", () => {
+  navigator.clipboard.writeText($("cfg-cert-path").textContent).then(
+    () => toast("已复制证书路径"),
+    () => toast("复制失败", true)
+  );
+});
+$("cfg-copy-lan").addEventListener("click", () => {
+  navigator.clipboard.writeText($("lan-guide-url").textContent).then(
+    () => toast("已复制移动端向导地址"),
+    () => toast("复制失败", true)
+  );
+});
+$("cfg-copy-pac").addEventListener("click", () => {
+  navigator.clipboard.writeText($("cfg-pac-url").textContent).then(
+    () => toast("已复制 PAC 分流地址"),
+    () => toast("复制失败", true)
+  );
+});
+$("copy-log").addEventListener("click", () => {
+  navigator.clipboard.writeText($("log").textContent).then(
+    () => toast("已复制全部日志"),
+    () => toast("复制失败", true)
+  );
+});
+
+let refreshTimer = null;
+let usageTimer = null;
+
+function stopPolling() {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+  if (usageTimer) { clearInterval(usageTimer); usageTimer = null; }
+}
+
+function startPolling() {
+  if (document.hidden) return;
+  if (!refreshTimer) refreshTimer = setInterval(refresh, 2000);
+  if (!usageTimer) usageTimer = setInterval(usage, 30000);
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopPolling();
+  } else {
+    refresh();
+    usage();
+    startPolling();
+  }
+});
+
+refresh();
+usage();
+startPolling();
+</script>
+</body>
+</html>
