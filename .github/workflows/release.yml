@@ -82,6 +82,34 @@ jobs:
             "$exeHash  GBF-Dock.exe"
           ) | Out-File -FilePath "dist/SHA256SUMS.txt" -Encoding ascii
 
+      - name: Extract release notes from CHANGELOG.md
+        shell: pwsh
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          $tag = $env:TAG
+          $notesPath = "dist/RELEASE_NOTES.md"
+          if (Test-Path "CHANGELOG.md") {
+            $lines = Get-Content "CHANGELOG.md"
+            $capture = $false
+            $buf = New-Object System.Collections.Generic.List[string]
+            foreach ($line in $lines) {
+              if ($line -match '^##\s+\[?([^\]\s]+)\]?') {
+                if ($capture) { break }
+                if ($Matches[1] -eq $tag) {
+                  $capture = $true
+                  continue
+                }
+              } elseif ($capture) {
+                $buf.Add($line)
+              }
+            }
+            $text = ($buf -join "`n").Trim()
+            if ($text) {
+              $text | Out-File -FilePath $notesPath -Encoding utf8 -NoNewline
+            }
+          }
+
       - name: Create or update GitHub Release
         shell: pwsh
         env:
@@ -92,4 +120,9 @@ jobs:
           $zipPath = "dist/GBF-Dock-$tag-windows-amd64.zip"
           $exePath = "dist/GBF-Dock/GBF-Dock.exe"
           $sumPath = "dist/SHA256SUMS.txt"
-          gh release create $tag $zipPath $exePath $sumPath --title "GBF-Dock $tag" --generate-notes
+          $notesPath = "dist/RELEASE_NOTES.md"
+          if ((Test-Path $notesPath) -and ((Get-Item $notesPath).Length -gt 0)) {
+            gh release create $tag $zipPath $exePath $sumPath --title "GBF-Dock $tag" --notes-file $notesPath
+          } else {
+            gh release create $tag $zipPath $exePath $sumPath --title "GBF-Dock $tag" --generate-notes
+          }
