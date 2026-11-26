@@ -51,6 +51,7 @@ jobs:
         env:
           TAG: ${{ steps.ver.outputs.tag }}
         run: |
+          $tag = $env:TAG
           $stage = "dist/GBF-Dock"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
@@ -60,12 +61,12 @@ jobs:
           go build -trimpath -ldflags "-s -w -H windowsgui" -o "$stage/GBF-Dock.exe" .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          $TAG | Out-File -FilePath "$stage/VERSION.txt" -Encoding utf8 -NoNewline
+          $tag | Out-File -FilePath "$stage/VERSION.txt" -Encoding utf8 -NoNewline
           Copy-Item README.md "$stage/README.md"
           Copy-Item LICENSE "$stage/LICENSE"
           Copy-Item docs/USAGE.md "$stage/使用说明.md"
 
-          $zipPath = "dist/GBF-Dock-$TAG-windows-amd64.zip"
+          $zipPath = "dist/GBF-Dock-$tag-windows-amd64.zip"
           Add-Type -AssemblyName System.IO.Compression
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
@@ -77,7 +78,7 @@ jobs:
           $exeHash = (Get-FileHash "$stage/GBF-Dock.exe" -Algorithm SHA256).Hash.ToLower()
           $zipHash = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLower()
           @(
-            "$zipHash  GBF-Dock-$TAG-windows-amd64.zip"
+            "$zipHash  GBF-Dock-$tag-windows-amd64.zip"
             "$exeHash  GBF-Dock.exe"
           ) | Out-File -FilePath "dist/SHA256SUMS.txt" -Encoding ascii
 
@@ -87,7 +88,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.ver.outputs.tag }}
         run: |
-          $zipPath = "dist/GBF-Dock-$TAG-windows-amd64.zip"
+          $tag = $env:TAG
+          $zipPath = "dist/GBF-Dock-$tag-windows-amd64.zip"
           $exePath = "dist/GBF-Dock/GBF-Dock.exe"
           $sumPath = "dist/SHA256SUMS.txt"
-          gh release create $TAG $zipPath $exePath $sumPath --title "GBF-Dock $TAG" --generate-notes
+          gh release create $tag $zipPath $exePath $sumPath --title "GBF-Dock $tag" --generate-notes
