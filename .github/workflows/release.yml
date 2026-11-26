@@ -90,7 +90,7 @@ jobs:
           $tag = $env:TAG
           $notesPath = "dist/RELEASE_NOTES.md"
           if (Test-Path "CHANGELOG.md") {
-            $lines = Get-Content "CHANGELOG.md"
+            $lines = Get-Content "CHANGELOG.md" -Encoding UTF8
             $capture = $false
             $buf = New-Object System.Collections.Generic.List[string]
             foreach ($line in $lines) {
@@ -106,7 +106,7 @@ jobs:
             }
             $text = ($buf -join "`n").Trim()
             if ($text) {
-              $text | Out-File -FilePath $notesPath -Encoding utf8 -NoNewline
+              [IO.File]::WriteAllText((Join-Path (Get-Location) $notesPath), $text, [Text.UTF8Encoding]::new($false))
             }
           }
 
