@@ -491,7 +491,10 @@ func launchWindow(url string) error {
 	dipY := int32(float64(wb.Y) / scale)
 	dipW := int32(float64(wb.Width) / scale)
 	dipH := int32(float64(wb.Height) / scale)
-	args := fmt.Sprintf("--app=%s --window-position=%d,%d --window-size=%d,%d", url, dipX, dipY, dipW, dipH)
+	panelDir := filepath.Join(filepath.Dir(windowBoundsPath()), "panel-profile")
+	_ = os.MkdirAll(panelDir, 0o755)
+	args := fmt.Sprintf(`--user-data-dir="%s" --no-first-run --no-default-browser-check --app=%s --window-position=%d,%d --window-size=%d,%d`,
+		panelDir, url, dipX, dipY, dipW, dipH)
 
 	if shellOpen("msedge", args) == nil {
 		startWindowTracker(wb, true)

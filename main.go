@@ -45,7 +45,7 @@ import (
 
 const (
 	appName             = "GBF-Dock"
-	appVersion          = "1.0.0"
+	appVersion          = "1.1.0"
 	panelTitle          = appName + " v" + appVersion + " 控制面板"
 	defaultUpstream     = "http://127.0.0.1:7890"
 	caName              = "GBF-Dock Local CA"
@@ -84,10 +84,13 @@ var hopHeaders = map[string]bool{
 }
 
 type appConfig struct {
-	UpstreamMode  string `json:"upstreamMode"`       // "auto" | "custom" | "direct"
-	UpstreamProxy string `json:"upstreamProxy"`      // 默认 ""（由自动检测决定）
-	AllowLAN      bool   `json:"allowLAN"`           // 是否允许局域网手机/iPad共享缓存
-	CacheDir      string `json:"cacheDir,omitempty"` // 自定义缓存存储目录（为空则用默认程序目录下的 cache）
+	UpstreamMode     string `json:"upstreamMode"`                // "auto" | "custom" | "direct"
+	UpstreamProxy    string `json:"upstreamProxy"`               // 默认 ""（由自动检测决定）
+	AllowLAN         bool   `json:"allowLAN"`                    // 是否允许局域网手机/iPad共享缓存
+	CacheDir         string `json:"cacheDir,omitempty"`          // 自定义缓存存储目录（为空则用默认程序目录下的 cache）
+	GameBrowserPath        string `json:"gameBrowserPath,omitempty"`        // 独立加速启动选定的浏览器 .exe 或快捷方式 .lnk
+	GameBrowserLabel       string `json:"gameBrowserLabel,omitempty"`       // 独立加速启动浏览器显示名称
+	GameBrowserProfileMode string `json:"gameBrowserProfileMode,omitempty"` // "original"（保留原配置，默认）| "isolated"（独立空白配置）
 }
 
 type proxy struct {

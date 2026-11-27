@@ -9,6 +9,8 @@ gbf-cache
 # Runtime & user state (never commit personal certs, keys, caches, or configs)
 cache/
 certs/
+browser-profile/
+panel-profile/
 config.json
 proxy_backup.json
 window.json

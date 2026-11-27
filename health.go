@@ -86,26 +86,30 @@ func (a *app) runHealthCheck() healthReport {
 	raiseOverall(certItem.Status)
 	rep.Items = append(rep.Items, certItem)
 
-	// 3. 系统代理接管
+	// 3. 系统代理接管 / 独立启动接入
 	proxyItem := healthItem{
 		Key:  "proxy",
-		Name: "系统代理接管",
+		Name: "加速接入方式",
 	}
+	bi := a.getBrowserInfo()
 	switch {
 	case runtime.GOOS != "windows":
 		proxyItem.Status = "ok"
-		proxyItem.Detail = fmt.Sprintf("请将浏览器代理指向 %s", a.p.addr)
+		proxyItem.Detail = fmt.Sprintf("请将浏览器代理指向 %s，或通过独立加速浏览器启动", a.p.addr)
 	case sys.LegacyPAC:
 		proxyItem.Status = "warn"
 		proxyItem.Detail = "检测到旧版 PAC 设置残留"
 		proxyItem.Hint = "重新开关一次「代理接管」即可自动迁移为手动 HTTP 串联模式。"
 	case sys.ProxyEnabled:
 		proxyItem.Status = "ok"
-		proxyItem.Detail = fmt.Sprintf("已通过手动 HTTP 代理串联接管系统流量（%s），未启用 PAC", a.p.addr)
+		proxyItem.Detail = fmt.Sprintf("已通过手动 HTTP 代理串联接管系统流量（%s），未修改系统 PAC", a.p.addr)
+	case bi.Configured && bi.Error == "":
+		proxyItem.Status = "ok"
+		proxyItem.Detail = fmt.Sprintf("已配置独立加速浏览器（%s），免接管系统代理，一键启动即自动生效", bi.Label)
 	default:
 		proxyItem.Status = "warn"
-		proxyItem.Detail = "代理接管当前处于关闭（待机）状态"
-		proxyItem.Hint = "开始游玩前请开启仪表盘上的「代理接管」开关。"
+		proxyItem.Detail = "代理接管处于待机状态，且尚未选定独立加速浏览器"
+		proxyItem.Hint = "可开启仪表盘「代理接管」开关，或选择「独立加速浏览器」免接管系统代理一键启动。"
 	}
 	raiseOverall(proxyItem.Status)
 	rep.Items = append(rep.Items, proxyItem)

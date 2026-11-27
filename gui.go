@@ -94,6 +94,7 @@ type app struct {
 
 	cfgMu          sync.Mutex
 	cfg            appConfig
+	browserInfo    gameBrowserInfo
 	cliOverride    bool
 	upstreamSource string
 	tunAdapter     string
@@ -152,6 +153,7 @@ func newApp(p *proxy, logs *logRing) *app {
 		w.Write(uiHTML)
 	})
 	adminRoutes.HandleFunc("GET /api/status", a.status)
+	adminRoutes.HandleFunc("GET /api/browsers", a.browsersHandler)
 	adminRoutes.HandleFunc("GET /api/usage", a.usage)
 	adminRoutes.HandleFunc("GET /api/cache-breakdown", a.cacheBreakdownHandler)
 	adminRoutes.HandleFunc("GET /api/cache-detect-old", a.cacheDetectOldHandler)
@@ -184,16 +186,13 @@ func newApp(p *proxy, logs *logRing) *app {
 	})
 	dataRoutes.HandleFunc("GET /proxy.pac", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
+		w.Header().Set("Cache-Control", "no-store")
 		loopback, _ := classifyRemoteAddr(r.RemoteAddr)
 		if !loopback {
 			fmt.Fprintf(w, pacTemplate, lanPacHostPort(r.Host, p.addr), "DIRECT")
 			return
 		}
-		_, manual := pacState()
-		if isProxyServerSelf(manual, p.addr) {
-			manual = savedBackupServer(a.backupPath, p.addr)
-		}
-		fmt.Fprintf(w, pacTemplate, p.addr, pacFallback(manual))
+		fmt.Fprintf(w, pacTemplate, a.localProxyHostPort(), a.pacFallbackAddr())
 	})
 	dataRoutes.HandleFunc("GET /ca.crt", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-x509-ca-cert")
@@ -265,6 +264,9 @@ func (a *app) initUpstream(cliSet bool, cliVal string) {
 			a.cfg.AllowLAN = loaded.AllowLAN
 			a.p.allowLAN.Store(loaded.AllowLAN)
 			a.cfg.CacheDir = strings.TrimSpace(loaded.CacheDir)
+			a.cfg.GameBrowserPath = strings.TrimSpace(loaded.GameBrowserPath)
+			a.cfg.GameBrowserLabel = strings.TrimSpace(loaded.GameBrowserLabel)
+			a.cfg.GameBrowserProfileMode = normalizeBrowserProfileMode(loaded.GameBrowserProfileMode)
 			if a.cfg.CacheDir != "" {
 				if _, cErr := a.p.setCacheRoot(a.cfg.CacheDir); cErr != nil {
 					log.Printf("加载自定义缓存目录 %s 失败，回退默认目录：%v", a.cfg.CacheDir, cErr)
@@ -273,6 +275,7 @@ func (a *app) initUpstream(cliSet bool, cliVal string) {
 			}
 		}
 	}
+	a.refreshBrowserInfoLocked()
 
 	if cliSet {
 		a.cliOverride = true
@@ -618,6 +621,7 @@ func (a *app) status(w http.ResponseWriter, r *http.Request) {
 		"allowLAN":        p.allowLAN.Load(),
 		"lanIPs":          a.cachedLANIPv4s(false),
 		"lastPingMs":      a.lastPingMs.Load(),
+		"gameBrowser":     a.getBrowserInfo(),
 		"system":          sys,
 		"logs":            a.logs.snapshot(),
 	})
@@ -726,11 +730,140 @@ func (a *app) action(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		msg, err = a.applyUpstreamConfig(body.Mode, body.Proxy)
-	case "open-game":
-		err = openURL(gameURL)
+	case "open-game", "launch-game":
+		var body struct {
+			RestartBrowser bool `json:"restartBrowser"`
+		}
+		if r.Body != nil {
+			_ = json.NewDecoder(r.Body).Decode(&body)
+		}
+		var out launchOutcome
+		out, err = a.launchGame(body.RestartBrowser)
+		if err == nil && out.NeedRestart {
+			writeJSON(w, map[string]any{
+				"needRestart":  true,
+				"browserLabel": out.BrowserLabel,
+				"message":      out.Message,
+			})
+			return
+		}
+		msg = out.Message
 	case "check-browser":
-		msg = "已在默认浏览器打开检测页。"
-		err = openURL(checkURL + "?t=" + strconv.FormatInt(time.Now().Unix(), 10)) // 每次地址都不同，避免浏览器拿出缓存的旧结果
+		var body struct {
+			Mode           string `json:"mode"`
+			RestartBrowser bool   `json:"restartBrowser"`
+		}
+		if r.Body != nil {
+			_ = json.NewDecoder(r.Body).Decode(&body)
+		}
+		target := checkURL + "?t=" + strconv.FormatInt(time.Now().Unix(), 10) // 每次地址都不同，避免浏览器拿出缓存的旧结果
+		mode := strings.ToLower(strings.TrimSpace(body.Mode))
+		if mode == "isolated" {
+			if !a.hasValidGameBrowser() {
+				err = fmt.Errorf("请先在控制面板选择一个用于独立加速启动的浏览器或快捷方式")
+				break
+			}
+			var out launchOutcome
+			out, err = a.launchGameBrowser(target, true, body.RestartBrowser)
+			if err == nil && out.NeedRestart {
+				writeJSON(w, map[string]any{
+					"needRestart":  true,
+					"browserLabel": out.BrowserLabel,
+					"message":      out.Message,
+				})
+				return
+			}
+			msg = out.Message
+		} else if mode == "" && a.hasValidGameBrowser() && !a.system().ProxyEnabled {
+			var out launchOutcome
+			out, err = a.launchGameBrowser(target, true, body.RestartBrowser)
+			if err == nil && out.NeedRestart {
+				writeJSON(w, map[string]any{
+					"needRestart":  true,
+					"browserLabel": out.BrowserLabel,
+					"message":      out.Message,
+				})
+				return
+			}
+			msg = out.Message
+		} else {
+			msg = "已在默认浏览器打开检测页。"
+			err = openURL(target)
+		}
+	case "browser-pick":
+		var body struct {
+			Title string `json:"title"`
+		}
+		if r.Body != nil {
+			_ = json.NewDecoder(r.Body).Decode(&body)
+		}
+		title := strings.TrimSpace(body.Title)
+		if title == "" {
+			title = "选择用于独立加速启动 GBF 的浏览器 (.exe) 或快捷方式 (.lnk)"
+		}
+		var picked string
+		var cancelled bool
+		picked, cancelled, err = pickBrowserFileDialog(title)
+		if err != nil {
+			writeJSON(w, map[string]string{"error": err.Error()})
+			return
+		}
+		if cancelled || strings.TrimSpace(picked) == "" {
+			writeJSON(w, map[string]any{"cancelled": true})
+			return
+		}
+		a.cfgMu.Lock()
+		curProfMode := a.cfg.GameBrowserProfileMode
+		a.cfgMu.Unlock()
+		info, applyMsg, applyErr := a.applyGameBrowser(picked, "", curProfMode, false)
+		if applyErr != nil {
+			writeJSON(w, map[string]any{"error": applyErr.Error(), "browser": info})
+			return
+		}
+		a.invalidateSystem()
+		log.Print(applyMsg)
+		writeJSON(w, map[string]any{"message": applyMsg, "browser": info})
+		return
+	case "browser-set":
+		var body struct {
+			Path        string `json:"path"`
+			Label       string `json:"label"`
+			ProfileMode string `json:"profileMode"`
+			KeepPath    bool   `json:"keepPath"`
+		}
+		if r.Body == nil || json.NewDecoder(r.Body).Decode(&body) != nil {
+			err = fmt.Errorf("参数格式错误")
+			break
+		}
+		info, applyMsg, applyErr := a.applyGameBrowser(body.Path, body.Label, body.ProfileMode, body.KeepPath)
+		if applyErr != nil {
+			writeJSON(w, map[string]any{"error": applyErr.Error(), "browser": info})
+			return
+		}
+		a.invalidateSystem()
+		log.Print(applyMsg)
+		writeJSON(w, map[string]any{"message": applyMsg, "browser": info})
+		return
+	case "browser-profile-clear":
+		var removedDirs int
+		var freedBytes int64
+		removedDirs, freedBytes, err = clearBrowserProfiles(a.configBaseDir())
+		a.cfgMu.Lock()
+		info := a.refreshBrowserInfoLocked()
+		a.cfgMu.Unlock()
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error(), "removedDirs": removedDirs, "freedBytes": freedBytes, "browser": info})
+			return
+		}
+		if removedDirs == 0 && freedBytes == 0 {
+			msg = "独立浏览器配置目录当前为空，无需清理。"
+		} else {
+			msg = fmt.Sprintf("已清理 %d 个独立浏览器配置目录，释放 %.1f MB 磁盘空间。", removedDirs, float64(freedBytes)/(1024*1024))
+		}
+		a.invalidateSystem()
+		log.Print(msg)
+		writeJSON(w, map[string]any{"message": msg, "removedDirs": removedDirs, "freedBytes": freedBytes, "browser": info})
+		return
 	case "open-folder":
 		if err = os.MkdirAll(cacheDir, 0o755); err == nil {
 			err = openFolder(cacheDir)
@@ -993,6 +1126,224 @@ func (a *app) showWindow() {
 	if err := launchWindow("http://" + a.controlAddr() + "/"); err != nil {
 		log.Printf("无法打开窗口：%v", err)
 	}
+}
+
+func (a *app) localProxyHostPort() string {
+	host, port, err := net.SplitHostPort(strings.TrimSpace(a.p.addr))
+	if err != nil || port == "" {
+		return a.p.addr
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+	return net.JoinHostPort(host, port)
+}
+
+func (a *app) localPACURL() string {
+	return "http://" + a.localProxyHostPort() + "/proxy.pac"
+}
+
+// pacFallbackAddr 为独立启动浏览器的 PAC 脚本选择非 CDN 流量的回退路由：
+// 优先使用 GBF-Dock 当前接入的上游代理（如 FlClash / v2rayN），其次检查系统手动代理，直连或 TUN 模式返回 DIRECT。
+func (a *app) pacFallbackAddr() string {
+	if up := a.p.getUpstream(); up != "" {
+		return upstreamToPACReturn(up)
+	}
+	if a.getUpstreamMode() == "direct" {
+		return "DIRECT"
+	}
+	_, manual := pacState()
+	if isProxyServerSelf(manual, a.p.addr) {
+		manual = savedBackupServer(a.backupPath, a.p.addr)
+	}
+	if manual != "" && !isProxyServerSelf(manual, a.p.addr) {
+		return pacFallback(manual)
+	}
+	return "DIRECT"
+}
+
+func (a *app) configBaseDir() string {
+	if d := strings.TrimSpace(filepath.Dir(a.configPath)); d != "" && d != "." {
+		return d
+	}
+	return a.p.dir
+}
+
+func (a *app) refreshBrowserInfoLocked() gameBrowserInfo {
+	info := inspectGameBrowser(a.cfg.GameBrowserPath, a.cfg.GameBrowserLabel, a.cfg.GameBrowserProfileMode, a.configBaseDir(), a.localPACURL())
+	a.browserInfo = info
+	return info
+}
+
+func (a *app) getBrowserInfo() gameBrowserInfo {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	info := a.browserInfo
+	if info.PACURL == "" {
+		info.PACURL = a.localPACURL()
+	}
+	if info.ProfileMode == "" {
+		info.ProfileMode = normalizeBrowserProfileMode(a.cfg.GameBrowserProfileMode)
+	}
+	return info
+}
+
+func (a *app) hasValidGameBrowser() bool {
+	info := a.getBrowserInfo()
+	return info.Configured && info.Error == "" && info.TargetExe != ""
+}
+
+func (a *app) browsersHandler(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]any{
+		"detected": detectInstalledBrowsers(),
+		"selected": a.getBrowserInfo(),
+	})
+}
+
+func (a *app) applyGameBrowser(rawPath, rawLabel, rawProfileMode string, keepPath bool) (gameBrowserInfo, string, error) {
+	a.cfgMu.Lock()
+	curPath := a.cfg.GameBrowserPath
+	curLabel := a.cfg.GameBrowserLabel
+	curMode := normalizeBrowserProfileMode(a.cfg.GameBrowserProfileMode)
+	a.cfgMu.Unlock()
+
+	if keepPath {
+		rawPath = curPath
+		rawLabel = curLabel
+	}
+	nextMode := curMode
+	if strings.TrimSpace(rawProfileMode) != "" {
+		nextMode = normalizeBrowserProfileMode(rawProfileMode)
+	}
+
+	trimmed := strings.TrimSpace(rawPath)
+	if trimmed == "" {
+		a.cfgMu.Lock()
+		a.cfg.GameBrowserPath = ""
+		a.cfg.GameBrowserLabel = ""
+		a.cfg.GameBrowserProfileMode = nextMode
+		info := a.refreshBrowserInfoLocked()
+		a.saveConfigLocked()
+		a.cfgMu.Unlock()
+		if keepPath {
+			modeTxt := "保留原浏览器配置（登录态/扩展）"
+			if nextMode == browserProfileModeIsolated {
+				modeTxt = "独立空白配置（可与主浏览器双开）"
+			}
+			return info, "已切换默认启动策略为「" + modeTxt + "」（尚未选定具体浏览器）", nil
+		}
+		return info, "已恢复使用系统默认浏览器启动游戏", nil
+	}
+
+	info := inspectGameBrowser(trimmed, rawLabel, nextMode, a.configBaseDir(), a.localPACURL())
+	if info.Error != "" {
+		return info, "", fmt.Errorf("%s", info.Error)
+	}
+
+	a.cfgMu.Lock()
+	a.cfg.GameBrowserPath = info.Path
+	a.cfg.GameBrowserLabel = info.Label
+	a.cfg.GameBrowserProfileMode = info.ProfileMode
+	a.browserInfo = info
+	a.saveConfigLocked()
+	a.cfgMu.Unlock()
+
+	modeDesc := "保留原浏览器配置与登录态，关闭浏览器后自动清除加速参数"
+	if info.HasCustomDir {
+		modeDesc = "沿用快捷方式自带 --user-data-dir 与登录态，关闭后自动清除加速参数"
+	} else if info.ProfileMode == browserProfileModeIsolated {
+		modeDesc = "独立空白配置目录（不冲突可双开），可在配置页随时清理"
+	}
+	return info, fmt.Sprintf("已选定独立加速浏览器：%s（%s）", info.Label, modeDesc), nil
+}
+
+type launchOutcome struct {
+	Message      string
+	NeedRestart  bool
+	BrowserLabel string
+}
+
+func (a *app) launchGameBrowser(targetURL string, forceTargetURL, restartBrowser bool) (launchOutcome, error) {
+	a.cfgMu.Lock()
+	rawPath := a.cfg.GameBrowserPath
+	rawLabel := a.cfg.GameBrowserLabel
+	profMode := normalizeBrowserProfileMode(a.cfg.GameBrowserProfileMode)
+	a.cfgMu.Unlock()
+
+	if strings.TrimSpace(rawPath) == "" {
+		return launchOutcome{}, fmt.Errorf("未配置独立加速浏览器")
+	}
+	pacURL := a.localPACURL()
+	info := inspectGameBrowser(rawPath, rawLabel, profMode, a.configBaseDir(), pacURL)
+
+	a.cfgMu.Lock()
+	if strings.EqualFold(a.cfg.GameBrowserPath, rawPath) {
+		a.browserInfo = info
+	}
+	a.cfgMu.Unlock()
+
+	if info.Error != "" {
+		return launchOutcome{}, fmt.Errorf("%s", info.Error)
+	}
+
+	explicitDir := ""
+	checkConflict := false
+	if info.HasCustomDir {
+		explicitDir = extractUserDataDirFromArgs(info.RawArgs)
+		checkConflict = true
+	} else if info.ProfileMode == browserProfileModeOriginal {
+		checkConflict = true
+	}
+
+	if checkConflict && isBrowserInstanceRunning(info.TargetExe, explicitDir) {
+		if !restartBrowser {
+			return launchOutcome{
+				NeedRestart:  true,
+				BrowserLabel: info.Label,
+				Message:      fmt.Sprintf("检测到「%s」当前正在运行（含后台进程）。保留原配置加速启动需先关闭它的旧进程，这样 --proxy-pac-url 才会生效；关闭浏览器后该参数会自动清除。", info.Label),
+			}, nil
+		}
+		if err := closeBrowserProcessesGracefully(info.TargetExe, explicitDir); err != nil {
+			return launchOutcome{}, err
+		}
+	}
+
+	args, hasCustomProfile, err := buildBrowserLaunchArgs(info.TargetExe, info.RawArgs, pacURL, info.ProfileDir, targetURL, forceTargetURL, info.ProfileMode)
+	if err != nil {
+		return launchOutcome{}, err
+	}
+	if !hasCustomProfile && info.ProfileMode == browserProfileModeIsolated && info.ProfileDir != "" {
+		if mErr := os.MkdirAll(info.ProfileDir, 0o755); mErr != nil {
+			return launchOutcome{}, fmt.Errorf("创建浏览器独立配置目录失败：%w", mErr)
+		}
+	}
+	if err := launchBrowserProcess(info.TargetExe, args, info.WorkDir); err != nil {
+		return launchOutcome{}, err
+	}
+
+	profTag := "保留原浏览器配置/登录态"
+	if hasCustomProfile {
+		profTag = "快捷方式原配置目录"
+	} else if info.ProfileMode == browserProfileModeIsolated {
+		profTag = "独立空白配置目录"
+	}
+	actionDesc := "已在独立加速浏览器中打开游戏"
+	if forceTargetURL {
+		actionDesc = "已在独立加速浏览器中打开连通检测页"
+	}
+	return launchOutcome{
+		Message: fmt.Sprintf("%s：%s（%s · 参数随窗口关闭自动失效）", actionDesc, info.Label, profTag),
+	}, nil
+}
+
+func (a *app) launchGame(restartBrowser bool) (launchOutcome, error) {
+	if a.hasValidGameBrowser() {
+		return a.launchGameBrowser(gameURL, false, restartBrowser)
+	}
+	if err := openURL(gameURL); err != nil {
+		return launchOutcome{}, err
+	}
+	return launchOutcome{Message: "已在系统默认浏览器打开碧蓝幻想。"}, nil
 }
 
 // isOldCA：以前版本（含旧版 GBF Cache）或别的解压目录生成的历史根证书，不是当前正在用的这张。

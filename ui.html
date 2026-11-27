@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GBF-Dock v1.0.0 控制面板</title>
+<title>GBF-Dock v1.1.0 控制面板</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f7cf6'/%3E%3Cpath d='M9 20.5a4.5 4.5 0 0 1 .9-8.9 6 6 0 0 1 11.4 1.6A3.7 3.7 0 0 1 22.5 20.5Z' fill='%23fff'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -647,7 +647,7 @@
   .drawer[hidden] { display: none; }
 
   .input-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  input[type="text"] {
+  input[type="text"], select {
     flex: 1;
     min-width: 0;
     height: 30px;
@@ -660,7 +660,44 @@
     font-size: 12px;
     outline: none;
   }
-  input[type="text"]:focus { border-color: var(--accent); }
+  select { font-family: var(--ui); cursor: pointer; padding: 0 8px; }
+  input[type="text"]:focus, select:focus { border-color: var(--accent); }
+
+  .browser-box {
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .browser-box-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  .browser-meta {
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .browser-meta.ok { color: var(--ok); }
+  .browser-meta.bad { color: var(--bad); }
+  .seg.seg-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+    min-width: 0;
+  }
+  .seg.seg-2 button { height: 24px; font-size: 11px; }
+  .browser-mode-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 
   /* Row 3：快捷操作（Col 1） + 实时动态（Col 2~3） */
   .act-card, .live-card {
@@ -1019,7 +1056,7 @@
     </nav>
 
     <div class="side-foot">
-      <div class="ver-row"><span>版本</span><span class="ver-tag" id="ver-badge">v1.0.0</span></div>
+      <div class="ver-row"><span>版本</span><span class="ver-tag" id="ver-badge">v1.1.0</span></div>
       <button type="button" class="quit-btn" data-act="quit" title="退出并还原系统代理">
         <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         <span class="quit-label">退出程序</span>
@@ -1187,10 +1224,30 @@
               </div>
             </div>
             <div class="btn-grid">
-              <button type="button" class="btn primary" data-act="open-game">启动游戏</button>
+              <button type="button" class="btn primary" id="btn-open-game" data-act="open-game">启动游戏</button>
               <button type="button" class="btn" data-act="check-browser">检测浏览器</button>
               <button type="button" class="btn" data-act="open-folder">打开缓存目录</button>
               <button type="button" class="btn danger" data-act="cache-clear" data-confirm="确定清空全部本地静态资源缓存？清空后再次进游戏会重新经代理下载。">清空缓存</button>
+            </div>
+            <div class="browser-box">
+              <div class="browser-box-head">
+                <span style="display:inline-flex;align-items:center;gap:5px;">
+                  <span>独立加速启动（免改系统代理）</span>
+                  <button type="button" class="tip-btn" data-tip="默认「保留原配置」：直接使用原浏览器的账号登录、Cookie 与扩展，--proxy-pac-url 仅当次生效，关闭浏览器自动清除；如不想关闭已在运行的主浏览器，可切换为「独立空白配置」双开。"></button>
+                </span>
+              </div>
+              <div class="input-row">
+                <select id="dash-browser-sel" aria-label="选择独立启动浏览器"></select>
+                <button type="button" class="btn sm" id="btn-dash-browser-pick" title="选择本机浏览器 (.exe) 或桌面快捷方式 (.lnk)">选程序 / .lnk</button>
+                <button type="button" class="btn sm" id="btn-dash-browser-clear" title="取消独立浏览器选择，恢复使用系统默认浏览器" hidden>清除</button>
+              </div>
+              <div class="browser-mode-row">
+                <div class="seg seg-2" role="group" aria-label="独立启动配置策略">
+                  <button type="button" data-bprof="original" title="保留原有账号登录态、Cookie 与扩展（关闭浏览器自动清除代理参数）">保留原配置</button>
+                  <button type="button" data-bprof="isolated" title="使用单独的隔离数据目录，可与主浏览器同时双开并可随时清理">独立空白配置</button>
+                </div>
+              </div>
+              <div class="browser-meta" id="dash-browser-meta">选择 Chromium 浏览器或快捷方式 (.lnk)，免接管系统代理一键启动</div>
             </div>
           </div>
           <div class="drawer" id="dash-act-drawer" hidden>
@@ -1325,6 +1382,39 @@
             <button type="button" class="btn primary sm" id="btn-cfg-health">一键 6 维系统体检</button>
           </div>
         </div>
+
+        <div class="card cfg-card">
+          <div class="card-title">
+            <div class="title-left">
+              <span class="lbl">独立加速浏览器（免接管系统代理）</span>
+              <button type="button" class="tip-btn" data-tip="通过一次性启动参数 --proxy-pac-url 接入 GBF-Dock，不改动 Windows 系统代理也不改 FlClash，关闭游戏浏览器后参数自动失效、零残留。默认「保留原配置」继承你原有的登录态与扩展；若选择「独立空白配置」也可在此随时清理目录。"></button>
+            </div>
+          </div>
+          <div class="cfg-kv"><span>当前接入模式</span><strong id="cfg-browser-mode">系统默认浏览器（需开启代理接管）</strong></div>
+          <div class="cfg-kv"><span>所选程序 / 快捷方式</span><strong id="cfg-browser-path">—</strong></div>
+          <div class="cfg-kv"><span>目标浏览器内核</span><strong id="cfg-browser-target">—</strong></div>
+          <div class="cfg-kv"><span>配置保留策略</span><strong id="cfg-browser-profile">—</strong></div>
+          <div class="cfg-kv"><span>独立配置数据占用</span><strong id="cfg-browser-disk">0 KB（无残留）</strong></div>
+          <div style="font-size:12px;color:var(--text-3);" id="cfg-browser-args-row" hidden>快捷方式原参数：<code id="cfg-browser-args"></code></div>
+          <div style="font-size:12px;color:var(--text-3);">独立启动 PAC：<code id="cfg-browser-pac"></code></div>
+          <div class="browser-mode-row">
+            <div class="seg seg-2" role="group" aria-label="浏览器配置保留策略">
+              <button type="button" data-bprof="original">保留原配置（登录/扩展）</button>
+              <button type="button" data-bprof="isolated">独立空白配置（可双开）</button>
+            </div>
+          </div>
+          <div class="input-row">
+            <select id="cfg-browser-sel" aria-label="选择独立启动浏览器"></select>
+            <button type="button" class="btn primary sm" id="btn-cfg-browser-pick">选择 .exe / .lnk</button>
+          </div>
+          <div class="btn-grid">
+            <button type="button" class="btn primary sm" data-act="launch-game">独立启动游戏</button>
+            <button type="button" class="btn sm" id="btn-cfg-browser-check">在独立浏览器检测</button>
+            <button type="button" class="btn sm" id="btn-cfg-browser-refresh">刷新已装浏览器</button>
+            <button type="button" class="btn sm" id="btn-cfg-browser-clear">恢复系统默认</button>
+            <button type="button" class="btn danger sm" id="btn-cfg-browser-clean">清理独立配置数据</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1427,7 +1517,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const appRoot = $("app-root");
-let busy = false, last = null, editingCustom = false;
+let busy = false, last = null, editingCustom = false, detectedBrowsers = [];
 const pageOpened = Math.floor(Date.now() / 1000);
 const tabNames = { dash: "仪表盘", settings: "配置与缓存", logs: "运行日志" };
 
@@ -1588,9 +1678,20 @@ function render(s) {
   $("state").lastElementChild.textContent = "运行中";
   $("dash-addr").textContent = s.addr;
 
+  const gb = s.gameBrowser || {};
+  const gbReady = !!(gb.configured && !gb.error);
+
   // 状态卡（仅展示状态徽标，不与下方开关重叠）
-  $("dash-proxy-tag").className = "tag " + (active ? "ok" : "");
-  $("dash-proxy-tag").textContent = active ? "● 接管中" : "待机中";
+  if (active) {
+    $("dash-proxy-tag").className = "tag ok";
+    $("dash-proxy-tag").textContent = "● 接管中";
+  } else if (gbReady) {
+    $("dash-proxy-tag").className = "tag ok";
+    $("dash-proxy-tag").textContent = "✓ 独立加速就绪";
+  } else {
+    $("dash-proxy-tag").className = "tag";
+    $("dash-proxy-tag").textContent = "待机中";
+  }
 
   $("dash-cert-tag").className = "tag " + (trusted ? "ok" : "warn");
   $("dash-cert-tag").textContent = trusted ? "证书已信任" : "证书未安装";
@@ -1611,7 +1712,10 @@ function render(s) {
     $("dash-up-tag").textContent = "直连 · 点击重测";
   }
 
-  $("dash-emblem").classList.toggle("on", active);
+  $("dash-emblem").classList.toggle("on", active || gbReady);
+  $("btn-open-game").textContent = gbReady ? "独立启动游戏" : "启动游戏";
+  syncBrowserSelects(gb);
+  renderBrowserMeta(s, gb);
 
   const pingSuffix = s.lastPingMs > 0 ? (" · " + s.lastPingMs + "ms") : "";
   if (s.upstreamProxy) {
@@ -1772,6 +1876,164 @@ function render(s) {
   prevLog.scrollTop = prevLog.scrollHeight;
 }
 
+function syncBrowserSelects(gb) {
+  const selPath = (gb && gb.configured && gb.path) ? gb.path : "";
+  const listKey = JSON.stringify(detectedBrowsers.map((b) => [b.name, b.path])) + "|" + selPath + "|" + ((gb && gb.label) || "") + "|" + ((gb && gb.kind) || "");
+  for (const id of ["dash-browser-sel", "cfg-browser-sel"]) {
+    const sel = $(id);
+    if (!sel || !changed(sel, listKey)) continue;
+    const opts = [h("option", { value: "", textContent: "系统默认浏览器（需开代理接管）" })];
+    let matched = selPath === "";
+    for (const b of detectedBrowsers) {
+      if (selPath && b.path.toLowerCase() === selPath.toLowerCase()) matched = true;
+      opts.push(h("option", { value: b.path, textContent: b.name }));
+    }
+    if (selPath && !matched) {
+      const suffix = gb.kind === "lnk" ? " [.lnk 快捷方式]" : " [自定义程序]";
+      opts.push(h("option", { value: selPath, textContent: (gb.label || selPath) + suffix }));
+    }
+    sel.replaceChildren(...opts);
+    sel.value = selPath;
+    if (sel.value !== selPath && selPath) {
+      for (const o of sel.options) {
+        if (o.value.toLowerCase() === selPath.toLowerCase()) {
+          sel.value = o.value;
+          break;
+        }
+      }
+    }
+  }
+}
+
+function renderBrowserMeta(s, gb) {
+  const dashMeta = $("dash-browser-meta");
+  const pacURL = (gb && gb.pacUrl) || s.pacURL || ("http://" + s.addr + "/proxy.pac");
+  if (changed($("cfg-browser-pac"), pacURL)) $("cfg-browser-pac").textContent = pacURL;
+
+  const profMode = (gb && gb.profileMode === "isolated") ? "isolated" : "original";
+  document.querySelectorAll("button[data-bprof]").forEach((b) => b.classList.toggle("active", b.dataset.bprof === profMode));
+
+  const diskBytes = (gb && gb.profileDiskBytes) || 0;
+  const diskDirs = (gb && gb.profileDiskDirs) || 0;
+  $("cfg-browser-disk").textContent = (diskDirs > 0 || diskBytes > 0)
+    ? (bytes(diskBytes) + "（" + diskDirs + " 个隔离目录）")
+    : "0 KB（无残留）";
+  $("btn-cfg-browser-clean").disabled = busy || (diskDirs === 0 && diskBytes === 0);
+
+  if (!gb || !gb.configured) {
+    dashMeta.className = "browser-meta";
+    dashMeta.textContent = profMode === "original"
+      ? "选择浏览器或 .lnk：保留原登录态，关闭浏览器自动清参数"
+      : "选择浏览器或 .lnk：独立空白目录双开，关闭自动清参数";
+    dashMeta.title = "";
+    $("cfg-browser-mode").textContent = "系统默认浏览器（需开启代理接管）";
+    $("cfg-browser-path").textContent = "未选定（沿用系统默认浏览器）";
+    $("cfg-browser-target").textContent = "—";
+    $("cfg-browser-profile").textContent = profMode === "original" ? "默认：保留原浏览器配置（登录/扩展）" : "默认：独立空白配置（可双开）";
+    $("cfg-browser-args-row").hidden = true;
+    $("btn-cfg-browser-clear").disabled = true;
+    $("btn-dash-browser-clear").hidden = true;
+    return;
+  }
+
+  $("btn-cfg-browser-clear").disabled = busy;
+  $("btn-dash-browser-clear").hidden = false;
+  $("cfg-browser-path").textContent = gb.path || "—";
+  $("cfg-browser-target").textContent = gb.targetExe || "—";
+
+  if (gb.error) {
+    dashMeta.className = "browser-meta bad";
+    dashMeta.textContent = "⚠ " + gb.error;
+    dashMeta.title = gb.error;
+    $("cfg-browser-mode").textContent = "配置异常";
+    $("cfg-browser-profile").textContent = gb.error;
+    $("cfg-browser-args-row").hidden = true;
+    return;
+  }
+
+  if (gb.hasCustomDir) {
+    dashMeta.className = "browser-meta ok";
+    dashMeta.textContent = "✓ 快捷方式原目录（保留登录态）· 关闭后自动清除参数";
+    dashMeta.title = gb.path;
+    $("cfg-browser-mode").textContent = "独立加速 · " + (gb.label || "快捷方式 (.lnk)");
+    $("cfg-browser-profile").textContent = "沿用快捷方式自带 --user-data-dir（关闭浏览器自动清除代理参数）";
+  } else if (profMode === "original") {
+    dashMeta.className = "browser-meta ok";
+    dashMeta.textContent = "✓ 保留原配置（" + (gb.label || "已选浏览器") + " · 含登录/扩展 · 关窗即清参数）";
+    dashMeta.title = gb.path + "（沿用浏览器原配置目录，退出后自动清除代理参数）";
+    $("cfg-browser-mode").textContent = "独立加速 · " + (gb.label || "浏览器");
+    $("cfg-browser-profile").textContent = "保留浏览器原配置目录（登录态/扩展保留，关闭后参数自动失效）";
+  } else {
+    dashMeta.className = "browser-meta ok";
+    dashMeta.textContent = "✓ 独立空白配置（" + (gb.label || "已选浏览器") + " · 可与主浏览器双开）";
+    dashMeta.title = (gb.profileDir ? ("独立数据目录：" + gb.profileDir) : gb.path);
+    $("cfg-browser-mode").textContent = "独立加速 · " + (gb.label || "浏览器");
+    $("cfg-browser-profile").textContent = "独立隔离目录 (" + (gb.profileDir || "browser-profile") + ")";
+  }
+
+  if (gb.rawArgs) {
+    $("cfg-browser-args-row").hidden = false;
+    if (changed($("cfg-browser-args"), gb.rawArgs)) $("cfg-browser-args").textContent = gb.rawArgs;
+  } else {
+    $("cfg-browser-args-row").hidden = true;
+  }
+}
+
+async function loadBrowsers() {
+  try {
+    const d = await api("/api/browsers");
+    detectedBrowsers = d.detected || [];
+    const sel = d.selected || (last && last.gameBrowser) || {};
+    syncBrowserSelects(sel);
+  } catch {}
+}
+
+async function applySelectedBrowser(pathVal, labelVal, btnEl, opts = {}) {
+  if (busy) return;
+  setBusy(true, btnEl);
+  try {
+    const payload = {
+      path: pathVal || "",
+      label: labelVal || "",
+      profileMode: opts.profileMode || "",
+      keepPath: !!opts.keepPath,
+    };
+    const r = await api("/api/browser-set", "POST", payload);
+    if (r.error) toast("设置失败：" + r.error, true);
+    else if (r.message) toast(r.message);
+  } catch {
+    toast("设置失败，程序未响应", true);
+  }
+  setBusy(false, btnEl);
+  await loadBrowsers();
+  await refresh();
+}
+
+async function postLaunchWithRestartPrompt(apiPath, bodyObj) {
+  let r = await api(apiPath, "POST", bodyObj);
+  if (r && r.needRestart) {
+    const ok = await confirmDialog((r.message || "检测到目标浏览器正在运行。") + "\n\n是否立即温和关闭旧进程并重新加速启动？（会保留你的账号登录与扩展）");
+    if (!ok) return { cancelled: true };
+    r = await api(apiPath, "POST", Object.assign({}, bodyObj || {}, { restartBrowser: true }));
+  }
+  return r;
+}
+
+async function pickCustomBrowser(btnEl) {
+  if (busy) return;
+  setBusy(true, btnEl);
+  try {
+    const r = await api("/api/browser-pick", "POST", { title: "选择用于独立加速启动 GBF 的浏览器 (.exe) 或快捷方式 (.lnk)" });
+    if (r.error) toast("选定失败：" + r.error, true);
+    else if (!r.cancelled && r.message) toast(r.message);
+  } catch {
+    toast("打开文件选择框失败，程序未响应", true);
+  }
+  setBusy(false, btnEl);
+  await loadBrowsers();
+  await refresh();
+}
+
 async function refresh() {
   if (busy) return;
   try {
@@ -1881,7 +2143,7 @@ async function runHealthCheck() {
 
 function setBusy(on, b) {
   busy = on;
-  document.querySelectorAll("button[data-act], button[data-upmode]").forEach((x) => (x.disabled = on));
+  document.querySelectorAll("button[data-act], button[data-upmode], button[data-bprof]").forEach((x) => (x.disabled = on));
   if (b && b.classList.contains("btn") && !b.classList.contains("chev-btn")) {
     if (on) { b._lbl = b.textContent; b.textContent = "处理中…"; }
     else if (b._lbl) b.textContent = b._lbl;
@@ -1889,6 +2151,12 @@ function setBusy(on, b) {
 }
 
 document.addEventListener("click", async (e) => {
+  const bprofBtn = e.target.closest("button[data-bprof]");
+  if (bprofBtn && !busy) {
+    await applySelectedBrowser("", "", bprofBtn, { profileMode: bprofBtn.dataset.bprof, keepPath: true });
+    return;
+  }
+
   const modeBtn = e.target.closest("button[data-upmode]");
   if (modeBtn && !busy) {
     const mode = modeBtn.dataset.upmode;
@@ -1919,9 +2187,11 @@ document.addEventListener("click", async (e) => {
   if (b.dataset.confirm && !(await confirmDialog(b.dataset.confirm))) return;
   setBusy(true, b);
   try {
-    const r = await api("/api/" + act, "POST");
+    const r = (act === "open-game" || act === "launch-game" || act === "check-browser")
+      ? await postLaunchWithRestartPrompt("/api/" + act, null)
+      : await api("/api/" + act, "POST");
     if (r.error) toast("失败：" + r.error, true);
-    else if (r.message) toast(r.message);
+    else if (!r.cancelled && r.message) toast(r.message);
     if (act === "quit") {
       $("ended").style.display = "grid";
       setTimeout(() => window.close(), 350);
@@ -2331,7 +2601,62 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+$("dash-browser-sel").addEventListener("change", (e) => {
+  const sel = e.target;
+  const opt = sel.options[sel.selectedIndex];
+  const lbl = sel.value ? (opt ? opt.textContent : "") : "";
+  applySelectedBrowser(sel.value, lbl);
+});
+$("cfg-browser-sel").addEventListener("change", (e) => {
+  const sel = e.target;
+  const opt = sel.options[sel.selectedIndex];
+  const lbl = sel.value ? (opt ? opt.textContent : "") : "";
+  applySelectedBrowser(sel.value, lbl);
+});
+$("btn-dash-browser-pick").addEventListener("click", () => pickCustomBrowser($("btn-dash-browser-pick")));
+$("btn-cfg-browser-pick").addEventListener("click", () => pickCustomBrowser($("btn-cfg-browser-pick")));
+$("btn-cfg-browser-refresh").addEventListener("click", async () => {
+  const btn = $("btn-cfg-browser-refresh");
+  setBusy(true, btn);
+  await loadBrowsers();
+  setBusy(false, btn);
+  toast("已检测本机可用的 Chromium 浏览器：" + detectedBrowsers.length + " 个");
+});
+$("btn-cfg-browser-clear").addEventListener("click", () => applySelectedBrowser("", "", $("btn-cfg-browser-clear")));
+$("btn-dash-browser-clear").addEventListener("click", () => applySelectedBrowser("", "", $("btn-dash-browser-clear")));
+$("btn-cfg-browser-clean").addEventListener("click", async () => {
+  if (busy) return;
+  const ok = await confirmDialog("确定清理 GBF-Dock「独立空白配置」模式下产生的所有浏览器临时数据目录？这只会删除隔离目录下的缓存与数据，完全不会影响你原浏览器里的账号、书签与配置。");
+  if (!ok) return;
+  const btn = $("btn-cfg-browser-clean");
+  setBusy(true, btn);
+  try {
+    const r = await api("/api/browser-profile-clear", "POST");
+    if (r.error) toast("清理失败：" + r.error, true);
+    else if (r.message) toast(r.message);
+  } catch {
+    toast("清理失败，程序未响应", true);
+  }
+  setBusy(false, btn);
+  await refresh();
+});
+$("btn-cfg-browser-check").addEventListener("click", async () => {
+  if (busy) return;
+  const btn = $("btn-cfg-browser-check");
+  setBusy(true, btn);
+  try {
+    const r = await postLaunchWithRestartPrompt("/api/check-browser", { mode: "isolated" });
+    if (r.error) toast("检测失败：" + r.error, true);
+    else if (!r.cancelled && r.message) toast(r.message);
+  } catch {
+    toast("打开检测页失败，程序未响应", true);
+  }
+  setBusy(false, btn);
+  await refresh();
+});
+
 refresh();
+loadBrowsers();
 usage();
 startPolling();
 </script>

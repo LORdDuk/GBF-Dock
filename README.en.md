@@ -23,9 +23,11 @@
 
 ## Quick Start
 
-1. Download `GBF-Dock-v1.0.0-windows-amd64.zip` from [Releases](https://github.com/LORdDuk/GBF-Dock/releases/latest) and extract it.
+1. Download `GBF-Dock-v1.1.0-windows-amd64.zip` from [Releases](https://github.com/LORdDuk/GBF-Dock/releases/latest) and extract it.
 2. Run **`GBF-Dock.exe`**, click **Install** under Local CA, confirm the Windows prompt, and **restart your browser completely**.
-3. Toggle **Proxy Takeover** on and click **Check Browser** until you see `✓ 检测通过`.
+3. Start accelerating (two modes):
+   - **Option A · Isolated Game Browser (Recommended, zero system-proxy changes)**: Select an auto-detected Chromium browser or browse for any `.exe` / `.lnk` game shortcut. Defaults to **preserving your existing browser profile** (logged-in accounts, cookies, extensions) while injecting a one-time `--proxy-pac-url` flag that clears automatically when you close the browser (zero Windows proxy takeover, zero FlClash changes, plus a one-click graceful restart prompt if the browser is already running). You can also switch to an isolated blank profile for side-by-side multi-session play and clean up its disk data in one click.
+   - **Option B · System Proxy Takeover**: Toggle **Proxy Takeover** on and click **Check Browser** until you see `✓ 检测通过`.
 
 > **Upgrading from legacy `GBFCache`**: Existing certificates and configs in `%APPDATA%\GBFCache` are automatically migrated to `%APPDATA%\GBF-Dock` on first launch (no re-installation needed).
 
@@ -36,6 +38,7 @@
 | Area | Details |
 |---|---|
 | **Hot RAM & Streaming** | `96 MB` SLRU in-memory hot cache (`<= 512 KB` items) serving `200`/`206`/`304`, Stream-Through misses (including known-length `Range: bytes=0-` `206` streaming), and singleflight dedup. |
+| **Isolated Browser Launcher** | Choose any Chromium `.exe` or `.lnk` shortcut; preserves original logins & extensions by default with automatic zero-residue flag cleanup on exit, graceful restart detection, or switchable isolated side-by-side profile with one-click cleanup. |
 | **Fast Binary Metadata Index** | CRC32-verified `.meta_index.v1` (v2) with decoupled TTL verification time vs. last-access tracking. |
 | **CDN Shard Fallback** | Covers browser, Steam, and `-gbf` asset hosts; automatically falls back and caches retired `prd-game-a1`~`a5` shard requests to the primary CDN host. |
 | **Proxy / VPN Chaining** | Auto-detects system proxy, common local HTTP/SOCKS5 ports (Clash, v2rayN, Sing-box, etc.), or TUN adapters; restores original proxy cleanly on exit. |

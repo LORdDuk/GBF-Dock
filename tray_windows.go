@@ -859,7 +859,20 @@ func trayMenu(a *app, hwnd uintptr) {
 	case menuOpen:
 		go a.showWindow()
 	case menuGame:
-		go openURL(gameURL)
+		go func() {
+			out, err := a.launchGame(false)
+			if err == nil && out.NeedRestart {
+				if !confirmRestartBrowserDialog(out.BrowserLabel) {
+					return
+				}
+				out, err = a.launchGame(true)
+			}
+			if err != nil {
+				log.Printf("托盘启动游戏失败：%v", err)
+			} else if out.Message != "" {
+				log.Print(out.Message)
+			}
+		}()
 	case menuQuit:
 		a.exit()
 	}
