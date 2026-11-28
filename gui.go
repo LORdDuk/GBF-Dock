@@ -267,6 +267,7 @@ func (a *app) initUpstream(cliSet bool, cliVal string) {
 			a.cfg.GameBrowserPath = strings.TrimSpace(loaded.GameBrowserPath)
 			a.cfg.GameBrowserLabel = strings.TrimSpace(loaded.GameBrowserLabel)
 			a.cfg.GameBrowserProfileMode = normalizeBrowserProfileMode(loaded.GameBrowserProfileMode)
+			a.cfg.AccessMode = normalizeAccessMode(loaded.AccessMode)
 			if a.cfg.CacheDir != "" {
 				if _, cErr := a.p.setCacheRoot(a.cfg.CacheDir); cErr != nil {
 					log.Printf("加载自定义缓存目录 %s 失败，回退默认目录：%v", a.cfg.CacheDir, cErr)
@@ -621,8 +622,10 @@ func (a *app) status(w http.ResponseWriter, r *http.Request) {
 		"allowLAN":        p.allowLAN.Load(),
 		"lanIPs":          a.cachedLANIPv4s(false),
 		"lastPingMs":      a.lastPingMs.Load(),
+		"accessMode":      a.getAccessMode(sys),
 		"gameBrowser":     a.getBrowserInfo(),
 		"system":          sys,
+		"events":          p.events.snapshot(),
 		"logs":            a.logs.snapshot(),
 	})
 }
@@ -711,10 +714,52 @@ func (a *app) action(w http.ResponseWriter, r *http.Request) {
 			_, _ = a.triggerDetectUpstream()
 		}
 		err = enableSystemProxy(a.p.addr, a.pacURL, a.backupPath)
-		msg = fmt.Sprintf("已开启代理接管（%s）：静态资源本地缓存，游戏数据及其他软件走 %s。", a.p.addr, a.upstreamLabel())
+		if err == nil {
+			a.cfgMu.Lock()
+			a.cfg.AccessMode = "system"
+			a.saveConfigLocked()
+			a.cfgMu.Unlock()
+		}
+		msg = fmt.Sprintf("已开启系统代理接管（%s）：静态资源本地缓存，游戏数据及其他软件走 %s。", a.p.addr, a.upstreamLabel())
 	case "proxy-off", "pac-off":
 		err = disableSystemProxy(a.p.addr, a.pacURL, a.backupPath, a.p.getUpstream())
-		msg = "已关闭代理接管并恢复原系统代理。"
+		msg = "已关闭系统代理接管并恢复原系统代理。"
+	case "set-access-mode":
+		var body struct {
+			Mode string `json:"mode"`
+		}
+		if r.Body == nil || json.NewDecoder(r.Body).Decode(&body) != nil {
+			err = fmt.Errorf("参数格式错误")
+			break
+		}
+		targetMode := normalizeAccessMode(body.Mode)
+		if targetMode == "" {
+			err = fmt.Errorf("无效的接入模式：%s", body.Mode)
+			break
+		}
+		wasProxyOn := a.system().ProxyEnabled
+		if targetMode == "isolated" && wasProxyOn {
+			if err = disableSystemProxy(a.p.addr, a.pacURL, a.backupPath, a.p.getUpstream()); err != nil {
+				break
+			}
+		}
+		a.cfgMu.Lock()
+		a.cfg.AccessMode = targetMode
+		a.saveConfigLocked()
+		a.cfgMu.Unlock()
+		a.invalidateSystem()
+		if targetMode == "isolated" {
+			if wasProxyOn {
+				msg = "已切换为独立浏览器模式（已自动关闭系统代理接管）。"
+			} else {
+				msg = "已切换为独立浏览器模式（免接管系统代理）。"
+			}
+		} else {
+			msg = "已切换为系统代理接管模式。"
+		}
+		log.Print(msg)
+		writeJSON(w, map[string]any{"message": msg, "accessMode": targetMode})
+		return
 	case "proxy-reset":
 		err = resetSystemProxy(a.p.addr, a.pacURL, a.backupPath, a.p.getUpstream())
 		msg = "已重置并恢复系统代理设置。"
@@ -774,7 +819,7 @@ func (a *app) action(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			msg = out.Message
-		} else if mode == "" && a.hasValidGameBrowser() && !a.system().ProxyEnabled {
+		} else if mode == "" && a.getAccessMode(a.system()) == "isolated" && a.hasValidGameBrowser() {
 			var out launchOutcome
 			out, err = a.launchGameBrowser(target, true, body.RestartBrowser)
 			if err == nil && out.NeedRestart {
@@ -1162,6 +1207,30 @@ func (a *app) pacFallbackAddr() string {
 	return "DIRECT"
 }
 
+func normalizeAccessMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "system":
+		return "system"
+	case "isolated":
+		return "isolated"
+	default:
+		return ""
+	}
+}
+
+func (a *app) getAccessMode(sys sysState) string {
+	if sys.ProxyEnabled {
+		return "system"
+	}
+	a.cfgMu.Lock()
+	m := normalizeAccessMode(a.cfg.AccessMode)
+	a.cfgMu.Unlock()
+	if m != "" {
+		return m
+	}
+	return "isolated"
+}
+
 func (a *app) configBaseDir() string {
 	if d := strings.TrimSpace(filepath.Dir(a.configPath)); d != "" && d != "." {
 		return d
@@ -1240,10 +1309,18 @@ func (a *app) applyGameBrowser(rawPath, rawLabel, rawProfileMode string, keepPat
 		return info, "", fmt.Errorf("%s", info.Error)
 	}
 
+	disabledProxy := false
+	if a.system().ProxyEnabled {
+		if dErr := disableSystemProxy(a.p.addr, a.pacURL, a.backupPath, a.p.getUpstream()); dErr == nil {
+			disabledProxy = true
+		}
+	}
+
 	a.cfgMu.Lock()
 	a.cfg.GameBrowserPath = info.Path
 	a.cfg.GameBrowserLabel = info.Label
 	a.cfg.GameBrowserProfileMode = info.ProfileMode
+	a.cfg.AccessMode = "isolated"
 	a.browserInfo = info
 	a.saveConfigLocked()
 	a.cfgMu.Unlock()
@@ -1252,7 +1329,10 @@ func (a *app) applyGameBrowser(rawPath, rawLabel, rawProfileMode string, keepPat
 	if info.HasCustomDir {
 		modeDesc = "沿用快捷方式自带 --user-data-dir 与登录态，关闭后自动清除加速参数"
 	} else if info.ProfileMode == browserProfileModeIsolated {
-		modeDesc = "独立空白配置目录（不冲突可双开），可在配置页随时清理"
+		modeDesc = "独立空白配置目录（不冲突可双开），可在浏览器页随时清理"
+	}
+	if disabledProxy {
+		modeDesc += "；已自动关闭系统代理接管"
 	}
 	return info, fmt.Sprintf("已选定独立加速浏览器：%s（%s）", info.Label, modeDesc), nil
 }
@@ -1337,13 +1417,17 @@ func (a *app) launchGameBrowser(targetURL string, forceTargetURL, restartBrowser
 }
 
 func (a *app) launchGame(restartBrowser bool) (launchOutcome, error) {
-	if a.hasValidGameBrowser() {
+	mode := a.getAccessMode(a.system())
+	if mode == "isolated" {
+		if !a.hasValidGameBrowser() {
+			return launchOutcome{}, fmt.Errorf("当前为独立浏览器模式，但尚未选定浏览器；请前往「浏览器」页选择浏览器或快捷方式")
+		}
 		return a.launchGameBrowser(gameURL, false, restartBrowser)
 	}
 	if err := openURL(gameURL); err != nil {
 		return launchOutcome{}, err
 	}
-	return launchOutcome{Message: "已在系统默认浏览器打开碧蓝幻想。"}, nil
+	return launchOutcome{Message: "已在系统默认浏览器打开碧蓝幻想（系统代理模式）。"}, nil
 }
 
 // isOldCA：以前版本（含旧版 GBF Cache）或别的解压目录生成的历史根证书，不是当前正在用的这张。

@@ -264,7 +264,7 @@ func TestBrowserSetProfileModeCleanupAndHealth(t *testing.T) {
 			proxyItem = it
 		}
 	}
-	if proxyItem.Status != "ok" || !strings.Contains(proxyItem.Detail, "独立加速浏览器") {
+	if proxyItem.Status != "ok" || !strings.Contains(proxyItem.Detail, "独立浏览器模式就绪") {
 		t.Fatalf("expected health proxyItem ok for isolated browser, got %+v", proxyItem)
 	}
 
@@ -275,5 +275,103 @@ func TestBrowserSetProfileModeCleanupAndHealth(t *testing.T) {
 	}
 	if a.hasValidGameBrowser() {
 		t.Fatal("expected game browser cleared")
+	}
+}
+
+func TestAccessModeMutualExclusionAndUI(t *testing.T) {
+	dir := t.TempDir()
+	p, err := newProxy(dir, filepath.Join(dir, "cfg", "certs"), "127.0.0.1:8765", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := newApp(p, &logRing{})
+	a.sysFn = func() sysState { return sysState{CertTrusted: true, ProxyEnabled: false} }
+
+	doReq := func(method, path, body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		r.Host = "127.0.0.1:8765"
+		r.Header.Set(csrfHeaderName, "1")
+		w := httptest.NewRecorder()
+		p.ServeHTTP(w, r)
+		return w
+	}
+
+	// Default accessMode is "isolated"
+	var st struct {
+		AccessMode string `json:"accessMode"`
+	}
+	if err := json.Unmarshal(doReq(http.MethodGet, "/api/status", "").Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
+	if st.AccessMode != "isolated" {
+		t.Fatalf("default accessMode = %q, want isolated", st.AccessMode)
+	}
+
+	// Switch to "system" mode & verify persistence
+	wSys := doReq(http.MethodPost, "/api/set-access-mode", `{"mode":"system"}`)
+	if wSys.Code != http.StatusOK || !strings.Contains(wSys.Body.String(), `"accessMode":"system"`) {
+		t.Fatalf("set-access-mode system failed: %d %s", wSys.Code, wSys.Body.String())
+	}
+	if err := json.Unmarshal(doReq(http.MethodGet, "/api/status", "").Body.Bytes(), &st); err != nil || st.AccessMode != "system" {
+		t.Fatalf("expected accessMode=system, got %+v err=%v", st, err)
+	}
+
+	// Switch back to "isolated"
+	wIso := doReq(http.MethodPost, "/api/set-access-mode", `{"mode":"isolated"}`)
+	if wIso.Code != http.StatusOK || !strings.Contains(wIso.Body.String(), `"accessMode":"isolated"`) {
+		t.Fatalf("set-access-mode isolated failed: %d %s", wIso.Code, wIso.Body.String())
+	}
+	cfgBytes, err := os.ReadFile(a.configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg appConfig
+	if err := json.Unmarshal(cfgBytes, &cfg); err != nil || cfg.AccessMode != "isolated" {
+		t.Fatalf("expected persisted accessMode=isolated, got %+v err=%v", cfg, err)
+	}
+
+	// Verify redesigned UI serves 5 tabs & 3-way theme mode
+	uiResp := doReq(http.MethodGet, "/", "")
+	body := uiResp.Body.String()
+	for _, want := range []string{"gbf-theme-mode", `data-tab="browser"`, `data-tab="cache"`, `data-tab="network"`, `data-access="isolated"`, `data-access="system"`, `data-feed="all"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("UI HTML missing expected marker %q", want)
+		}
+	}
+}
+
+func TestActivityRingInStatus(t *testing.T) {
+	dir := t.TempDir()
+	p, err := newProxy(dir, filepath.Join(dir, "cfg", "certs"), "127.0.0.1:8765", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := newApp(p, &logRing{})
+	a.sysFn = func() sysState { return sysState{CertTrusted: true} }
+
+	p.recordEvent("https://prd-game-a1-granbluefantasy.akamaized.net/assets_en/1729002592/img/sp/quest/scene_1.png?v=1", nil, "miss", 12345)
+	p.recordEvent("https://prd-game-a1-granbluefantasy.akamaized.net/assets_en/1729002592/sound/voice/v_01.mp3", nil, "ram", 4096)
+
+	r := httptest.NewRequest(http.MethodGet, "/api/status", nil)
+	r.Host = "127.0.0.1:8765"
+	w := httptest.NewRecorder()
+	p.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("/api/status code = %d", w.Code)
+	}
+	var st struct {
+		Events []assetEvent `json:"events"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
+	if len(st.Events) != 2 {
+		t.Fatalf("events len = %d, want 2", len(st.Events))
+	}
+	if st.Events[0].Kind != "ram" || st.Events[0].Cat != "audio" || st.Events[0].Path != "/assets_en/sound/voice/v_01.mp3" || st.Events[0].Bytes != 4096 {
+		t.Fatalf("unexpected newest event: %+v", st.Events[0])
+	}
+	if st.Events[1].Kind != "miss" || st.Events[1].Cat != "image" || st.Events[1].Path != "/assets_en/img/sp/quest/scene_1.png" || st.Events[1].Bytes != 12345 {
+		t.Fatalf("unexpected second event: %+v", st.Events[1])
 	}
 }

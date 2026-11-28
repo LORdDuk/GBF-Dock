@@ -92,6 +92,7 @@ func (a *app) runHealthCheck() healthReport {
 		Name: "加速接入方式",
 	}
 	bi := a.getBrowserInfo()
+	accMode := a.getAccessMode(sys)
 	switch {
 	case runtime.GOOS != "windows":
 		proxyItem.Status = "ok"
@@ -99,17 +100,21 @@ func (a *app) runHealthCheck() healthReport {
 	case sys.LegacyPAC:
 		proxyItem.Status = "warn"
 		proxyItem.Detail = "检测到旧版 PAC 设置残留"
-		proxyItem.Hint = "重新开关一次「代理接管」即可自动迁移为手动 HTTP 串联模式。"
+		proxyItem.Hint = "重新开关一次「系统代理接管」即可自动迁移为手动 HTTP 串联模式。"
 	case sys.ProxyEnabled:
 		proxyItem.Status = "ok"
-		proxyItem.Detail = fmt.Sprintf("已通过手动 HTTP 代理串联接管系统流量（%s），未修改系统 PAC", a.p.addr)
-	case bi.Configured && bi.Error == "":
+		proxyItem.Detail = fmt.Sprintf("已启用系统代理接管（%s），未修改系统 PAC", a.p.addr)
+	case accMode == "isolated" && bi.Configured && bi.Error == "":
 		proxyItem.Status = "ok"
-		proxyItem.Detail = fmt.Sprintf("已配置独立加速浏览器（%s），免接管系统代理，一键启动即自动生效", bi.Label)
+		proxyItem.Detail = fmt.Sprintf("独立浏览器模式就绪（%s），免接管系统代理，一键启动即自动生效", bi.Label)
+	case accMode == "isolated":
+		proxyItem.Status = "warn"
+		proxyItem.Detail = "当前为独立浏览器模式，但尚未选定浏览器"
+		proxyItem.Hint = "请前往「浏览器」页选择 Chromium 浏览器或 .lnk 快捷方式，或在仪表盘切换为「系统代理」模式。"
 	default:
 		proxyItem.Status = "warn"
-		proxyItem.Detail = "代理接管处于待机状态，且尚未选定独立加速浏览器"
-		proxyItem.Hint = "可开启仪表盘「代理接管」开关，或选择「独立加速浏览器」免接管系统代理一键启动。"
+		proxyItem.Detail = "当前为系统代理模式，但接管开关未开启"
+		proxyItem.Hint = "请在仪表盘开启「系统代理接管」开关，或切换为「独立浏览器」模式。"
 	}
 	raiseOverall(proxyItem.Status)
 	rep.Items = append(rep.Items, proxyItem)

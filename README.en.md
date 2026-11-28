@@ -23,11 +23,12 @@
 
 ## Quick Start
 
-1. Download `GBF-Dock-v1.1.0-windows-amd64.zip` from [Releases](https://github.com/LORdDuk/GBF-Dock/releases/latest) and extract it.
-2. Run **`GBF-Dock.exe`**, click **Install** under Local CA, confirm the Windows prompt, and **restart your browser completely**.
-3. Start accelerating (two modes):
-   - **Option A · Isolated Game Browser (Recommended, zero system-proxy changes)**: Select an auto-detected Chromium browser or browse for any `.exe` / `.lnk` game shortcut. Defaults to **preserving your existing browser profile** (logged-in accounts, cookies, extensions) while injecting a one-time `--proxy-pac-url` flag that clears automatically when you close the browser (zero Windows proxy takeover, zero FlClash changes, plus a one-click graceful restart prompt if the browser is already running). You can also switch to an isolated blank profile for side-by-side multi-session play and clean up its disk data in one click.
-   - **Option B · System Proxy Takeover**: Toggle **Proxy Takeover** on and click **Check Browser** until you see `✓ 检测通过`.
+1. Download `GBF-Dock-v1.2.0-windows-amd64.zip` from [Releases](https://github.com/LORdDuk/GBF-Dock/releases/latest) and extract it.
+2. Run **`GBF-Dock.exe`**, open **Network & Security**, install the Local CA certificate, confirm the Windows prompt, and **restart your browser completely**.
+3. Choose one mutually exclusive acceleration mode on the Dashboard:
+   - **Option A · Isolated Browser Mode (Recommended, zero system-proxy changes)**: Open the **Browser** tab to pick any Chromium browser or `.lnk` game shortcut (preserves logins & extensions by default; one-time `--proxy-pac-url` clears automatically when closed). Switching to this mode automatically turns off system proxy takeover.
+   - **Option B · System Proxy Mode**: Switch to **System Proxy** on the Dashboard, enable the system proxy toggle, and run a connection check (compatible with Steam GBF and all browsers).
+4. Supports **Follow System / Light / Dark** 3-way theme switching and responsive 3-tier window adaptation.
 
 > **Upgrading from legacy `GBFCache`**: Existing certificates and configs in `%APPDATA%\GBFCache` are automatically migrated to `%APPDATA%\GBF-Dock` on first launch (no re-installation needed).
 

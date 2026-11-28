@@ -1,5 +1,6 @@
 # Binaries & release packages
 *.exe
+*.exe~
 *.zip
 *.tar.gz
 GBF-Dock

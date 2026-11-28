@@ -45,7 +45,7 @@ import (
 
 const (
 	appName             = "GBF-Dock"
-	appVersion          = "1.1.0"
+	appVersion          = "1.2.0"
 	panelTitle          = appName + " v" + appVersion + " 控制面板"
 	defaultUpstream     = "http://127.0.0.1:7890"
 	caName              = "GBF-Dock Local CA"
@@ -91,6 +91,7 @@ type appConfig struct {
 	GameBrowserPath        string `json:"gameBrowserPath,omitempty"`        // 独立加速启动选定的浏览器 .exe 或快捷方式 .lnk
 	GameBrowserLabel       string `json:"gameBrowserLabel,omitempty"`       // 独立加速启动浏览器显示名称
 	GameBrowserProfileMode string `json:"gameBrowserProfileMode,omitempty"` // "original"（保留原配置，默认）| "isolated"（独立空白配置）
+	AccessMode             string `json:"accessMode,omitempty"`             // "isolated"（独立浏览器，默认）| "system"（系统代理接管），互斥
 }
 
 type proxy struct {
@@ -135,6 +136,7 @@ type proxy struct {
 	checkedAt                                                                    atomic.Int64 // 最近一次“检测浏览器”通过的时间
 	seenHosts                                                                    sync.Map     // 已收到过请求的 CDN 域名
 	deadShards                                                                   sync.Map     // 已确认下线的旧分片 host -> time.Time
+	events                                                                       activityRing // 最近 80 条静态资源实时动态
 }
 
 // 缓存文件第一行
@@ -1042,6 +1044,8 @@ func (p *proxy) serve(w http.ResponseWriter, r *http.Request, origin string) {
 		}
 		p.merged.Add(1)
 		if p.serveCached(w, r, target, path, false) {
+			cl, _ := strconv.ParseInt(w.Header().Get("Content-Length"), 10, 64)
+			p.recordEvent(target, w.Header(), "merge", cl)
 			return
 		}
 		p.forward(w, r, target, true) // 领头的请求没能缓存（如 404，或是另一个版本）：自己直接取
@@ -1068,6 +1072,7 @@ func (p *proxy) serve(w http.ResponseWriter, r *http.Request, origin string) {
 			return
 		}
 		p.errors.Add(1)
+		p.recordEvent(target, nil, "err", 0)
 		log.Printf("下载失败 %s：%v", target, err)
 		http.Error(w, fmt.Sprint("gbf-dock: ", err), http.StatusBadGateway)
 		return
@@ -1085,6 +1090,7 @@ func (p *proxy) serve(w http.ResponseWriter, r *http.Request, origin string) {
 		return
 	}
 	p.errors.Add(1)
+	p.recordEvent(target, nil, "err", 0)
 	log.Printf("下载失败 %s：%v", target, err)
 	http.Error(w, fmt.Sprint("gbf-dock: ", err), http.StatusBadGateway)
 }
@@ -1370,6 +1376,7 @@ func (p *proxy) store(path, target string, resp *http.Response) error {
 			}
 		}
 		p.markMetaIndexDirty()
+		p.recordEvent(target, h, "miss", written)
 	}
 	return nil
 }

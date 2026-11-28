@@ -41,8 +41,9 @@ var (
 	procIsZoomed          = user32.NewProc("IsZoomed")
 	procIsWindow          = user32.NewProc("IsWindow")
 	procShowWindow        = user32.NewProc("ShowWindow")
-	procBringWindowToTop  = user32.NewProc("BringWindowToTop")
-	procGetDpiForSystem   = user32.NewProc("GetDpiForSystem")
+	procBringWindowToTop         = user32.NewProc("BringWindowToTop")
+	procGetDpiForSystem          = user32.NewProc("GetDpiForSystem")
+	procGetGUIThreadInfo         = user32.NewProc("GetGUIThreadInfo")
 )
 
 const (
@@ -51,11 +52,15 @@ const (
 	swRestore               = 9
 	swpNoZOrder             = 0x0004
 	wmClose                 = 0x0010
+	guiInMoveSize           = 0x00000002
 	defaultProxyBypass      = "localhost;127.*;10.*;172.16.*;192.168.*;<local>"
+	panelMinWidthDIP        = 480
+	panelMinHeightDIP       = 560
 )
 
 // closePanelWindow closes any visible GBF-Dock control panel windows after persisting non-minimized bounds.
 func closePanelWindow(titlePrefix string) {
+	closeNativePanel()
 	if titlePrefix == "" {
 		return
 	}
@@ -263,27 +268,83 @@ func systemDPIScale() float64 {
 	return 1.0
 }
 
+func windowDPIScale(hwnd uintptr) float64 {
+	if hwnd != 0 && procGetDpiForWindow.Find() == nil {
+		if d, _, _ := procGetDpiForWindow.Call(hwnd); d >= 96 {
+			return float64(d) / 96.0
+		}
+	}
+	return systemDPIScale()
+}
+
+type guiThreadInfo struct {
+	CbSize        uint32
+	Flags         uint32
+	HwndActive    uintptr
+	HwndFocus     uintptr
+	HwndCapture   uintptr
+	HwndMenuOwner uintptr
+	HwndMoveSize  uintptr
+	HwndCaret     uintptr
+	RcCaret       winRect
+}
+
+func isWindowMovingOrResizing(hwnd uintptr) bool {
+	if s, _, _ := procGetAsyncKeyState.Call(vkLButton); (s & 0x8000) != 0 {
+		return true
+	}
+	if s, _, _ := procGetAsyncKeyState.Call(vkRButton); (s & 0x8000) != 0 {
+		return true
+	}
+	if hwnd != 0 && procGetWindowThreadProcessId.Find() == nil && procGetGUIThreadInfo.Find() == nil {
+		tid, _, _ := procGetWindowThreadProcessId.Call(hwnd, 0)
+		if tid != 0 {
+			var gti guiThreadInfo
+			gti.CbSize = uint32(unsafe.Sizeof(gti))
+			if r, _, _ := procGetGUIThreadInfo.Call(tid, uintptr(unsafe.Pointer(&gti))); r != 0 {
+				if (gti.Flags&guiInMoveSize) != 0 || gti.HwndMoveSize != 0 {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func clampBoundsToWorkArea(wb windowBounds, hasSaved bool) windowBounds {
+	scale := systemDPIScale()
+	calcMin := func(workW, workH int32) (int32, int32) {
+		minW := int32(float64(panelMinWidthDIP) * scale)
+		minH := int32(float64(panelMinHeightDIP) * scale)
+		if workW > 0 && minW > workW {
+			minW = workW
+		}
+		if workH > 0 && minH > workH {
+			minH = workH
+		}
+		return minW, minH
+	}
+
 	if !hasSaved {
 		var pt winPoint
 		procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
 		work := workAreaForPoint(pt)
 		workW := work.Right - work.Left
 		workH := work.Bottom - work.Top
-		scale := systemDPIScale()
-		w := int32(980 * scale)
-		h := int32(640 * scale)
+		w := int32(1160 * scale)
+		h := int32(760 * scale)
 		if workW > 0 && w > workW*9/10 {
 			w = workW * 9 / 10
 		}
 		if workH > 0 && h > workH*9/10 {
 			h = workH * 9 / 10
 		}
-		if w < 520 {
-			w = 520
+		minW, minH := calcMin(workW, workH)
+		if w < minW {
+			w = minW
 		}
-		if h < 420 {
-			h = 420
+		if h < minH {
+			h = minH
 		}
 		return windowBounds{
 			X:      work.Left + (workW-w)/2,
@@ -293,16 +354,17 @@ func clampBoundsToWorkArea(wb windowBounds, hasSaved bool) windowBounds {
 		}
 	}
 
-	if wb.Width < 480 {
-		wb.Width = 480
-	}
-	if wb.Height < 360 {
-		wb.Height = 360
-	}
 	center := winPoint{X: wb.X + wb.Width/2, Y: wb.Y + wb.Height/2}
 	work := workAreaForPoint(center)
 	workW := work.Right - work.Left
 	workH := work.Bottom - work.Top
+	minW, minH := calcMin(workW, workH)
+	if wb.Width < minW {
+		wb.Width = minW
+	}
+	if wb.Height < minH {
+		wb.Height = minH
+	}
 	if workW > 0 && wb.Width > workW {
 		wb.Width = workW
 	}
@@ -355,6 +417,9 @@ func findPanelWindow(titlePrefix string) uintptr {
 }
 
 func focusExistingWindow(titlePrefix string) bool {
+	if focusNativePanel() {
+		return true
+	}
 	hwnd := findPanelWindow(titlePrefix)
 	if hwnd == 0 {
 		return false
@@ -426,17 +491,25 @@ func startWindowTracker(initial windowBounds, applyInitial bool) {
 		}
 
 		lastSaved := cur
+		var lastSample winRect
+		hasSample := false
+		stableTicks := 0
+
 		for {
-			time.Sleep(250 * time.Millisecond)
+			time.Sleep(120 * time.Millisecond)
 			if alive, _, _ := procIsWindow.Call(hwnd); alive == 0 {
 				saveWindowBounds(cur)
 				return
 			}
 			if iconic, _, _ := procIsIconic.Call(hwnd); iconic != 0 {
+				stableTicks = 0
+				hasSample = false
 				continue
 			}
 			zoomed, _, _ := procIsZoomed.Call(hwnd)
 			if zoomed != 0 {
+				stableTicks = 0
+				hasSample = false
 				if !cur.Maximized {
 					cur.Maximized = true
 					if cur != lastSaved {
@@ -447,21 +520,94 @@ func startWindowTracker(initial windowBounds, applyInitial bool) {
 				continue
 			}
 
+			// 用户仍在按下鼠标拖拽或系统处于 MoveSize 调整环时绝不介入，避免窗口反复弹跳卡顿
+			if isWindowMovingOrResizing(hwnd) {
+				stableTicks = 0
+				continue
+			}
+
 			var rc winRect
 			if r, _, _ := procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&rc))); r == 0 {
 				continue
 			}
-			w := rc.Right - rc.Left
-			h := rc.Bottom - rc.Top
-			if w < 400 || h < 320 {
+			if !hasSample || rc != lastSample {
+				lastSample = rc
+				hasSample = true
+				stableTicks = 0
 				continue
 			}
+			stableTicks++
+			if stableTicks != 2 {
+				continue
+			}
+
+			w := rc.Right - rc.Left
+			h := rc.Bottom - rc.Top
+			if w <= 0 || h <= 0 {
+				continue
+			}
+			scale := windowDPIScale(hwnd)
+			minW := int32(float64(panelMinWidthDIP) * scale)
+			minH := int32(float64(panelMinHeightDIP) * scale)
+			work := workAreaForPoint(winPoint{X: rc.Left + w/2, Y: rc.Top + h/2})
+			workW := work.Right - work.Left
+			workH := work.Bottom - work.Top
+			if workW > 0 && minW > workW {
+				minW = workW
+			}
+			if workH > 0 && minH > workH {
+				minH = workH
+			}
+			if w < minW || h < minH {
+				newW, newH := w, h
+				newX, newY := rc.Left, rc.Top
+				if newW < minW {
+					newW = minW
+					if cur.Width > 0 && absDiff32(rc.Right, cur.X+cur.Width) <= 8 && rc.Left > cur.X {
+						newX = rc.Right - newW
+					}
+				}
+				if newH < minH {
+					newH = minH
+					if cur.Height > 0 && absDiff32(rc.Bottom, cur.Y+cur.Height) <= 8 && rc.Top > cur.Y {
+						newY = rc.Bottom - newH
+					}
+				}
+				if workW > 0 && newW > workW {
+					newW = workW
+				}
+				if workH > 0 && newH > workH {
+					newH = workH
+				}
+				if workW > 0 {
+					if newX < work.Left {
+						newX = work.Left
+					}
+					if newX+newW > work.Right {
+						newX = work.Right - newW
+					}
+				}
+				if workH > 0 {
+					if newY < work.Top {
+						newY = work.Top
+					}
+					if newY+newH > work.Bottom {
+						newY = work.Bottom - newH
+					}
+				}
+				procSetWindowPos.Call(hwnd, 0, uintptr(newX), uintptr(newY), uintptr(newW), uintptr(newH), swpNoZOrder|swpNoActivate)
+				lastSample = winRect{Left: newX, Top: newY, Right: newX + newW, Bottom: newY + newH}
+				cur = windowBounds{X: newX, Y: newY, Width: newW, Height: newH, Maximized: false}
+				if cur != lastSaved {
+					saveWindowBounds(cur)
+					lastSaved = cur
+				}
+				continue
+			}
+
 			next := windowBounds{X: rc.Left, Y: rc.Top, Width: w, Height: h, Maximized: false}
-			if next != cur {
+			if next != cur || cur != lastSaved {
 				cur = next
-				saveWindowBounds(cur)
-				lastSaved = cur
-			} else if cur != lastSaved {
 				saveWindowBounds(cur)
 				lastSaved = cur
 			}
@@ -469,7 +615,7 @@ func startWindowTracker(initial windowBounds, applyInitial bool) {
 	}()
 }
 
-// launchWindow 严格保证同一时间只打开一个控制面板窗口：若已打开则直接激活前置，否则按上次关闭前的位置和大小打开。
+// launchWindow 严格保证同一时间只打开一个控制面板窗口：优先使用原生 Win32 + WebView2 宿主窗口（硬性锁死最小尺寸无回弹），不可用时自动回退至浏览器应用模式。
 func launchWindow(url string) error {
 	launchMu.Lock()
 	defer launchMu.Unlock()
@@ -478,13 +624,21 @@ func launchWindow(url string) error {
 	wb := clampBoundsToWorkArea(saved, hasSaved)
 
 	if focusExistingWindow(panelTitle) {
-		startWindowTracker(wb, false)
+		if hwnd := findPanelWindow(panelTitle); hwnd != 0 && !focusNativePanel() {
+			startWindowTracker(wb, false)
+		}
 		return nil
 	}
 	if time.Since(lastLaunch) < 1500*time.Millisecond {
 		return nil
 	}
 	lastLaunch = time.Now()
+
+	if err := launchNativePanel(url, wb); err == nil {
+		return nil
+	} else {
+		log.Printf("原生 WebView2 控制面板不可用（%v），自动回退浏览器应用模式", err)
+	}
 
 	scale := systemDPIScale()
 	dipX := int32(float64(wb.X) / scale)

@@ -18,9 +18,83 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
+
+const maxAssetEvents = 80
+
+type assetEvent struct {
+	ID    int64  `json:"id"`
+	TS    int64  `json:"ts"`
+	Kind  string `json:"kind"` // "ram" | "hit" | "304" | "merge" | "miss" | "err"
+	Cat   string `json:"cat"`  // "image" | "audio" | "script" | "data" | "other"
+	Path  string `json:"path"`
+	Bytes int64  `json:"bytes"`
+}
+
+type activityRing struct {
+	mu    sync.Mutex
+	seq   int64
+	buf   [maxAssetEvents]assetEvent
+	head  int
+	count int
+}
+
+func shortAssetPath(rawURL string) string {
+	p := rawURL
+	if u, err := url.Parse(rawURL); err == nil && u.Path != "" {
+		p = u.Path
+	} else if q := strings.IndexByte(p, '?'); q >= 0 {
+		p = p[:q]
+	}
+	p = versionSegment.ReplaceAllString(p, "/")
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	if len(p) > 96 {
+		p = "…/" + p[len(p)-92:]
+	}
+	return p
+}
+
+func (r *activityRing) add(kind, cat, assetPath string, nBytes int64) {
+	r.mu.Lock()
+	r.seq++
+	ev := assetEvent{
+		ID:    r.seq,
+		TS:    time.Now().Unix(),
+		Kind:  kind,
+		Cat:   cat,
+		Path:  assetPath,
+		Bytes: nBytes,
+	}
+	r.buf[r.head] = ev
+	r.head = (r.head + 1) % maxAssetEvents
+	if r.count < maxAssetEvents {
+		r.count++
+	}
+	r.mu.Unlock()
+}
+
+func (r *activityRing) snapshot() []assetEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.count == 0 {
+		return []assetEvent{}
+	}
+	out := make([]assetEvent, r.count)
+	for i := 0; i < r.count; i++ {
+		idx := (r.head - 1 - i + maxAssetEvents) % maxAssetEvents
+		out[i] = r.buf[idx]
+	}
+	return out
+}
+
+func (p *proxy) recordEvent(rawURL string, hdr http.Header, kind string, nBytes int64) {
+	p.events.add(kind, classifyAssetURL(rawURL, hdr), shortAssetPath(rawURL), nBytes)
+}
 
 type cachedMeta struct {
 	url        string
@@ -521,6 +595,9 @@ func (p *proxy) streamFetchAndStore(ctx context.Context, w http.ResponseWriter, 
 	if !streamToClient {
 		return false, upErr
 	}
+	if upErr == nil && totalBody > 0 {
+		p.recordEvent(target, cacheHdr, "miss", totalBody)
+	}
 	return true, nil
 }
 
@@ -579,6 +656,7 @@ func (p *proxy) serveCachedFile(w http.ResponseWriter, r *http.Request, target, 
 					p.hits.Add(1)
 					p.ramHits.Add(1)
 					p.hits304.Add(1)
+					p.recordEvent(target, entry.header, "304", 0)
 					p.checkFreshnessOnHit(target, cacheFile, r.Header, entry.header, entry.modTime, entry.lastAccess)
 				}
 				for k, vv := range entry.header {
@@ -591,6 +669,7 @@ func (p *proxy) serveCachedFile(w http.ResponseWriter, r *http.Request, target, 
 				if hit {
 					p.hits.Add(1)
 					p.ramHits.Add(1)
+					p.recordEvent(target, entry.header, "ram", 0)
 					p.checkFreshnessOnHit(target, cacheFile, r.Header, entry.header, entry.modTime, entry.lastAccess)
 				}
 				for k, vv := range entry.header {
@@ -603,6 +682,7 @@ func (p *proxy) serveCachedFile(w http.ResponseWriter, r *http.Request, target, 
 			if hit {
 				p.hits.Add(1)
 				p.ramHits.Add(1)
+				p.recordEvent(target, entry.header, "ram", entry.size)
 				p.checkFreshnessOnHit(target, cacheFile, r.Header, entry.header, entry.modTime, entry.lastAccess)
 			}
 			for k, vv := range entry.header {
@@ -627,6 +707,7 @@ func (p *proxy) serveCachedFile(w http.ResponseWriter, r *http.Request, target, 
 			if hit {
 				p.hits.Add(1)
 				p.hits304.Add(1)
+				p.recordEvent(target, cm.header, "304", 0)
 				p.checkFreshnessOnHit(target, cacheFile, r.Header, cm.header, cm.modTime, cm.lastAccess)
 			}
 			for k, vv := range cm.header {
@@ -638,6 +719,7 @@ func (p *proxy) serveCachedFile(w http.ResponseWriter, r *http.Request, target, 
 		if r.Method == http.MethodHead && r.Header.Get("Range") == "" {
 			if hit {
 				p.hits.Add(1)
+				p.recordEvent(target, cm.header, "hit", 0)
 				p.checkFreshnessOnHit(target, cacheFile, r.Header, cm.header, cm.modTime, cm.lastAccess)
 			}
 			for k, vv := range cm.header {
@@ -692,6 +774,7 @@ func (p *proxy) serveCachedFile(w http.ResponseWriter, r *http.Request, target, 
 		if hit {
 			p.hits.Add(1)
 			p.hits304.Add(1)
+			p.recordEvent(target, cm.header, "304", 0)
 			p.checkFreshnessOnHit(target, cacheFile, r.Header, cm.header, st.ModTime(), cm.lastAccess)
 		}
 		for k, vv := range cm.header {
@@ -703,6 +786,7 @@ func (p *proxy) serveCachedFile(w http.ResponseWriter, r *http.Request, target, 
 
 	if hit {
 		p.hits.Add(1)
+		p.recordEvent(target, cm.header, "hit", cm.bodySize)
 		p.checkFreshnessOnHit(target, cacheFile, r.Header, cm.header, st.ModTime(), cm.lastAccess)
 	}
 
