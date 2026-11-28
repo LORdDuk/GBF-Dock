@@ -517,11 +517,9 @@ func findWebView2Runtime() (dllPath, version string, err error) {
 	}
 
 	// Fallback directory scan if EdgeUpdate registry keys are missing or restricted.
-	scanRoots := append([]string{}, defaultRoots...)
-	if pf86 := strings.TrimSpace(os.Getenv("ProgramFiles(x86)")); pf86 != "" {
-		scanRoots = append(scanRoots, filepath.Join(pf86, "Microsoft", "Edge", "Application"))
-	}
-	for _, rootDir := range scanRoots {
+	// Do not scan stable Microsoft\Edge\Application: stable Edge browser rejects
+	// third-party WebView2 hosting with HRESULT 0x80070032 (ERROR_NOT_SUPPORTED).
+	for _, rootDir := range defaultRoots {
 		entries, rErr := os.ReadDir(rootDir)
 		if rErr != nil {
 			continue
